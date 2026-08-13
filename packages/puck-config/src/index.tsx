@@ -356,7 +356,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
     ? ({ type: "custom" as const, render: opts.mediaField } as const)
     : ({ type: "text" as const } as const);
   return {
-    categories: CATEGORIES as OcPuckConfig["categories"],
+    categories: CATEGORIES as unknown as OcPuckConfig["categories"],
     components: {
       Eyebrow: {
         label: "Eyebrow label",
