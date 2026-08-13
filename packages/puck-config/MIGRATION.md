@@ -45,6 +45,12 @@ Publish copies draft → live. Public routes never read drafts.
 - **Style objects** — text blocks carry
   `{ font, size, kerning, lineHeight, color, spaceAbove, spaceBelow }`.
   `0` means inherit; `color` is `"default"`, a house token key, or `"#hex"`.
+- **Screen overrides (0.7.0)** — styled blocks may additionally carry an
+  OPTIONAL `styleVariants` prop: sparse partial style objects keyed by
+  combo key (`"tablet"`, `"desktop"`, from the brand's breakpoints via
+  `@pacsarcade/variant-engine`). Absent or empty = the block renders on
+  the pre-0.7 inline path unchanged. Clearing an override DELETES the
+  key — `0` is a real value there (it wins), never "unset".
 - **Legacy blocks** — `GoldButton` predates the `Button` variant block and
   stays registered forever so pre-P3 pages render. This is the precedent:
   old payloads are never orphaned.

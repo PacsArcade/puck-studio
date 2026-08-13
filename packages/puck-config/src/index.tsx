@@ -2,6 +2,15 @@ import type { ReactElement } from "react";
 import type { Config, Slot } from "@puckeditor/core";
 import ColorField from "./color-field";
 import { STARTER, colorCss, fontCss, type BrandTokens } from "./tokens";
+import {
+  DEFAULT_STYLE,
+  type Align,
+  type FontKey,
+  type StyleProps,
+  type StyleVariants,
+} from "./responsive/schema";
+import { styleVariantsCss, type BlockStyleDefaults } from "./responsive/css";
+import { ResponsiveStyleField } from "./responsive/field";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
@@ -25,18 +34,10 @@ import { STARTER, colorCss, fontCss, type BrandTokens } from "./tokens";
  */
 
 // -- style inspector shared bits --------------------------------------------
-type Align = "left" | "center" | "right";
-type FontKey = "default" | "display" | "body" | "accent";
-/** colour is a plain string: "default", a house token key, or a "#hex" */
-type StyleProps = {
-  font: FontKey;
-  size: number;
-  kerning: number;
-  lineHeight: number;
-  color: string;
-  spaceAbove: number;
-  spaceBelow: number;
-};
+// Align / FontKey / StyleProps / DEFAULT_STYLE live in responsive/schema.ts
+// (Phase 2 step 2) so the responsive layer shares one definition; the shapes
+// are byte-identical to what lived here.
+export type { Align, FontKey, StyleProps, StyleVariants };
 
 /* Font and colour resolution reads the brand's TOKENS (Phase 1 step 1).
    Values come entirely from the brand cartridge the host passes in --
@@ -68,6 +69,9 @@ function styleField(tokens: BrandTokens) {
   const b = tokens.type.bounds;
   return {
     type: "object" as const,
+    // With screen overrides below it, this field is explicitly the BASE
+    // (phone-first) layer (Phase 2 step 2, accepted fallback for rail 5).
+    label: "Base style",
     objectFields: {
       font: {
         type: "select" as const,
@@ -125,17 +129,8 @@ function styleField(tokens: BrandTokens) {
   };
 }
 
-const DEFAULT_STYLE: StyleProps = {
-  font: "default",
-  size: 0,
-  kerning: 0,
-  lineHeight: 0,
-  color: "default",
-  spaceAbove: 0,
-  spaceBelow: 0,
-};
-
-/** typography overrides for the element (size 0 / line-height 0 = inherit) */
+/** typography overrides for the element (size 0 / line-height 0 = inherit).
+ *  KEEP IN LOCKSTEP with responsive/css.ts typoDecls (its decl-record twin). */
 function typo(s?: StyleProps): React.CSSProperties {
   const c: React.CSSProperties = {};
   if (!s) return c;
@@ -148,13 +143,27 @@ function typo(s?: StyleProps): React.CSSProperties {
     c.color = colorCss(ACTIVE_TOKENS, s.color);
   return c;
 }
-/** the wrapper: alignment + vertical spacing */
+/** the wrapper: alignment + vertical spacing.
+ *  KEEP IN LOCKSTEP with responsive/css.ts boxDecls (its decl-record twin). */
 function box(align: Align, s?: StyleProps): React.CSSProperties {
   const c: React.CSSProperties = { textAlign: align };
   if (s?.spaceAbove) c.marginTop = `${s.spaceAbove}px`;
   if (s?.spaceBelow) c.marginBottom = `${s.spaceBelow}px`;
   return c;
 }
+
+/* Hardcoded inline defaults of styled blocks, as decl records. When a block
+   carries styleVariants these move INTO the generated sheet's base layer
+   (inline styles beat stylesheets — an override could never win otherwise).
+   Values are byte-identical to the inline path's. */
+const TEXT_DEFAULTS: BlockStyleDefaults = {
+  typo: {
+    color: "var(--ink-body)",
+    "font-size": ".98rem",
+    "line-height": "1.85",
+  },
+};
+const QUOTE_DEFAULTS: BlockStyleDefaults = { box: { margin: "0" } };
 
 const ALIGN_FIELD = {
   type: "select" as const,
@@ -166,36 +175,44 @@ const ALIGN_FIELD = {
 };
 
 // -- prop types -------------------------------------------------------------
-type EyebrowProps = { text: string; align: Align; style: StyleProps };
+/* Styled blocks additionally carry OPTIONAL screen overrides (Phase 2
+   step 2). `id` is Puck's injected block id — the CSS class seed. Absent
+   styleVariants = today's exact inline render (untouched-path law). */
+type Styled = { styleVariants?: StyleVariants };
+type EyebrowProps = { text: string; align: Align; style: StyleProps } & Styled;
 type HeadingProps = {
   text: string;
   level: "h1" | "h2" | "h3";
   align: Align;
   style: StyleProps;
-};
+} & Styled;
 type StackedHeadingProps = {
   line1: string;
   line2: string;
   tag: "h1" | "h2";
   align: Align;
   style: StyleProps;
-};
-type TextProps = { text: string; align: Align; style: StyleProps };
-type RichTextProps = { html: string; align: Align; style: StyleProps };
-type PullQuoteProps = { text: string; align: Align; style: StyleProps };
+} & Styled;
+type TextProps = { text: string; align: Align; style: StyleProps } & Styled;
+type RichTextProps = { html: string; align: Align; style: StyleProps } & Styled;
+type PullQuoteProps = {
+  text: string;
+  align: Align;
+  style: StyleProps;
+} & Styled;
 type ButtonProps = {
   label: string;
   href: string;
   variant: "gold" | "rose" | "teal" | "quiet";
   align: Align;
   style: StyleProps;
-};
+} & Styled;
 type QuoteProps = {
   quote: string;
   who: string;
   align: Align;
   style: StyleProps;
-};
+} & Styled;
 type GoldButtonProps = { label: string; href: string };
 type CardProps = { title: string; body: string };
 type HeroProps = { days: string; title: string; sub: string };
@@ -352,6 +369,38 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
   const METEORS = opts.assets.meteors;
   ACTIVE_TOKENS = opts.tokens ?? DEFAULT_TOKENS;
   const STYLE_FIELD = styleField(ACTIVE_TOKENS);
+  const TOKENS = ACTIVE_TOKENS;
+  /* Screen overrides (Phase 2 step 2). NO defaultProps entry anywhere:
+     a block only carries styleVariants once an operator writes one. */
+  const STYLE_VARIANTS_FIELD = {
+    type: "custom" as const,
+    label: "Screen overrides",
+    render: ({
+      value,
+      onChange,
+    }: {
+      value: StyleVariants | undefined;
+      onChange: (value: StyleVariants) => void;
+    }) => (
+      <ResponsiveStyleField value={value} onChange={onChange} tokens={TOKENS} />
+    ),
+  };
+  /** shorthand: the block's generated sheet, or null → inline path */
+  const sv = (
+    id: string | undefined,
+    align: Align,
+    style: StyleProps | undefined,
+    styleVariants: StyleVariants | undefined,
+    blockDefaults?: BlockStyleDefaults
+  ) =>
+    styleVariantsCss(
+      id ?? "",
+      align,
+      style,
+      styleVariants,
+      TOKENS,
+      blockDefaults
+    );
   const SRC_FIELD = opts.mediaField
     ? ({ type: "custom" as const, render: opts.mediaField } as const)
     : ({ type: "text" as const } as const);
@@ -364,22 +413,44 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           text: { type: "text" },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           text: "A small gold label",
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ text, align, style }: EyebrowProps) => (
-          <div style={box(align, style)}>
-            <span
-              className="kicker"
-              style={{ display: "inline-block", ...typo(style) }}
-            >
-              {text}
-            </span>
-          </div>
-        ),
+        render: ({
+          id,
+          text,
+          align,
+          style,
+          styleVariants,
+        }: EyebrowProps & { id?: string }) => {
+          const rsp = sv(id, align, style, styleVariants);
+          if (!rsp)
+            return (
+              <div style={box(align, style)}>
+                <span
+                  className="kicker"
+                  style={{ display: "inline-block", ...typo(style) }}
+                >
+                  {text}
+                </span>
+              </div>
+            );
+          return (
+            <div className={rsp.boxClass}>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <span
+                className={`kicker ${rsp.typoClass}`}
+                style={{ display: "inline-block" }}
+              >
+                {text}
+              </span>
+            </div>
+          );
+        },
       },
 
       Heading: {
@@ -396,6 +467,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           text: "Heading",
@@ -403,13 +475,33 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ text, level, align, style }: HeadingProps) => {
+        render: ({
+          id,
+          text,
+          level,
+          align,
+          style,
+          styleVariants,
+        }: HeadingProps & { id?: string }) => {
           const Tag = level;
+          const rsp = sv(id, align, style, styleVariants);
+          if (!rsp)
+            return (
+              <div style={box(align, style)}>
+                <Tag
+                  className="sec-h"
+                  style={{ display: "inline-block", ...typo(style) }}
+                >
+                  {text}
+                </Tag>
+              </div>
+            );
           return (
-            <div style={box(align, style)}>
+            <div className={rsp.boxClass}>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
               <Tag
-                className="sec-h"
-                style={{ display: "inline-block", ...typo(style) }}
+                className={`sec-h ${rsp.typoClass}`}
+                style={{ display: "inline-block" }}
               >
                 {text}
               </Tag>
@@ -432,6 +524,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           line1: "MY",
@@ -440,17 +533,46 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ line1, line2, tag, align, style }: StackedHeadingProps) => {
+        render: ({
+          id,
+          line1,
+          line2,
+          tag,
+          align,
+          style,
+          styleVariants,
+        }: StackedHeadingProps & { id?: string }) => {
           const Tag = tag;
+          const rsp = sv(id, align, style, styleVariants);
+          if (!rsp)
+            return (
+              <div style={box(align, style)}>
+                <Tag
+                  className="stack-hero"
+                  style={{
+                    display: "inline-block",
+                    textAlign: align,
+                    ...typo(style),
+                  }}
+                >
+                  <span
+                    className="sh-ink"
+                    style={{ color: "var(--ink-strong)" }}
+                  >
+                    {line1}
+                  </span>
+                  <span className="sh-teal">{line2}</span>
+                </Tag>
+              </div>
+            );
+          /* inner textAlign stays inline: align is not a varianted prop,
+             so it can never mask an override */
           return (
-            <div style={box(align, style)}>
+            <div className={rsp.boxClass}>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
               <Tag
-                className="stack-hero"
-                style={{
-                  display: "inline-block",
-                  textAlign: align,
-                  ...typo(style),
-                }}
+                className={`stack-hero ${rsp.typoClass}`}
+                style={{ display: "inline-block", textAlign: align }}
               >
                 <span className="sh-ink" style={{ color: "var(--ink-strong)" }}>
                   {line1}
@@ -468,25 +590,42 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           text: { type: "textarea" },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           text: "Body copy goes here.",
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ text, align, style }: TextProps) => (
-          <p
-            style={{
-              color: "var(--ink-body)",
-              fontSize: ".98rem",
-              lineHeight: 1.85,
-              ...box(align, style),
-              ...typo(style),
-            }}
-          >
-            {text}
-          </p>
-        ),
+        render: ({
+          id,
+          text,
+          align,
+          style,
+          styleVariants,
+        }: TextProps & { id?: string }) => {
+          const rsp = sv(id, align, style, styleVariants, TEXT_DEFAULTS);
+          if (!rsp)
+            return (
+              <p
+                style={{
+                  color: "var(--ink-body)",
+                  fontSize: ".98rem",
+                  lineHeight: 1.85,
+                  ...box(align, style),
+                  ...typo(style),
+                }}
+              >
+                {text}
+              </p>
+            );
+          return (
+            <>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <p className={`${rsp.boxClass} ${rsp.typoClass}`}>{text}</p>
+            </>
+          );
+        },
       },
 
       /* RichText -- prose with inline emphasis/colour. Renders the html field
@@ -498,24 +637,44 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           html: { type: "textarea" },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           html: 'A paragraph with <b style="color:var(--teal-bright)">emphasis</b>.',
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ html, align, style }: RichTextProps) => (
-          <p
-            style={{
-              color: "var(--ink-body)",
-              fontSize: ".98rem",
-              lineHeight: 1.85,
-              ...box(align, style),
-              ...typo(style),
-            }}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        ),
+        render: ({
+          id,
+          html,
+          align,
+          style,
+          styleVariants,
+        }: RichTextProps & { id?: string }) => {
+          const rsp = sv(id, align, style, styleVariants, TEXT_DEFAULTS);
+          if (!rsp)
+            return (
+              <p
+                style={{
+                  color: "var(--ink-body)",
+                  fontSize: ".98rem",
+                  lineHeight: 1.85,
+                  ...box(align, style),
+                  ...typo(style),
+                }}
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            );
+          return (
+            <>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <p
+                className={`${rsp.boxClass} ${rsp.typoClass}`}
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            </>
+          );
+        },
       },
 
       PullQuote: {
@@ -524,20 +683,39 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           text: { type: "textarea" },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           text: "A line worth pausing on, in her voice.",
           align: "center",
           style: DEFAULT_STYLE,
         },
-        render: ({ text, align, style }: PullQuoteProps) => (
-          <p
-            className="pull-quote"
-            style={{ ...box(align, style), ...typo(style) }}
-          >
-            {text}
-          </p>
-        ),
+        render: ({
+          id,
+          text,
+          align,
+          style,
+          styleVariants,
+        }: PullQuoteProps & { id?: string }) => {
+          const rsp = sv(id, align, style, styleVariants);
+          if (!rsp)
+            return (
+              <p
+                className="pull-quote"
+                style={{ ...box(align, style), ...typo(style) }}
+              >
+                {text}
+              </p>
+            );
+          return (
+            <>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <p className={`pull-quote ${rsp.boxClass} ${rsp.typoClass}`}>
+                {text}
+              </p>
+            </>
+          );
+        },
       },
 
       Button: {
@@ -556,6 +734,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           label: "Book a reading",
@@ -564,14 +743,32 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ label, href, variant, align, style }: ButtonProps) => {
+        render: ({
+          id,
+          label,
+          href,
+          variant,
+          align,
+          style,
+          styleVariants,
+        }: ButtonProps & { id?: string }) => {
           const cls =
             variant === "quiet"
               ? "btn-quiet btn-quiet--gold"
               : `btn btn-${variant}`;
+          const rsp = sv(id, align, style, styleVariants);
+          if (!rsp)
+            return (
+              <div style={box(align, style)}>
+                <a href={href} className={cls} style={typo(style)}>
+                  {label}
+                </a>
+              </div>
+            );
           return (
-            <div style={box(align, style)}>
-              <a href={href} className={cls} style={typo(style)}>
+            <div className={rsp.boxClass}>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <a href={href} className={`${cls} ${rsp.typoClass}`}>
                 {label}
               </a>
             </div>
@@ -586,6 +783,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           who: { type: "text" },
           align: ALIGN_FIELD,
           style: STYLE_FIELD,
+          styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
           quote: "Something a client said, in their words.",
@@ -593,19 +791,49 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align: "left",
           style: DEFAULT_STYLE,
         },
-        render: ({ quote, who, align, style }: QuoteProps) => (
-          <figure style={{ margin: 0, maxWidth: 640, ...box(align, style) }}>
-            <blockquote
-              className="voice-quote"
-              style={{ margin: 0, ...typo(style) }}
-            >
-              {quote}
-            </blockquote>
-            <figcaption className="voice-who" style={{ marginTop: 8 }}>
-              {who}
-            </figcaption>
-          </figure>
-        ),
+        render: ({
+          id,
+          quote,
+          who,
+          align,
+          style,
+          styleVariants,
+        }: QuoteProps & { id?: string }) => {
+          const rsp = sv(id, align, style, styleVariants, QUOTE_DEFAULTS);
+          if (!rsp)
+            return (
+              <figure
+                style={{ margin: 0, maxWidth: 640, ...box(align, style) }}
+              >
+                <blockquote
+                  className="voice-quote"
+                  style={{ margin: 0, ...typo(style) }}
+                >
+                  {quote}
+                </blockquote>
+                <figcaption className="voice-who" style={{ marginTop: 8 }}>
+                  {who}
+                </figcaption>
+              </figure>
+            );
+          /* figure margin:0 moved into the sheet's base layer (QUOTE_DEFAULTS)
+             so spaceAbove/Below overrides can win; maxWidth is not a
+             style-system property and stays inline */
+          return (
+            <figure className={rsp.boxClass} style={{ maxWidth: 640 }}>
+              <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
+              <blockquote
+                className={`voice-quote ${rsp.typoClass}`}
+                style={{ margin: 0 }}
+              >
+                {quote}
+              </blockquote>
+              <figcaption className="voice-who" style={{ marginTop: 8 }}>
+                {who}
+              </figcaption>
+            </figure>
+          );
+        },
       },
 
       GoldButton: {

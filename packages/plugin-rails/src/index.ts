@@ -4,6 +4,14 @@ import type {
   Severity,
 } from "@pacsarcade/puck-config/tokens";
 import { gradeOn } from "@pacsarcade/puck-config/tokens";
+import {
+  createRegistry,
+  resolve,
+  screenComboForWidth,
+  screenVariantsFromBreakpoints,
+  type VariantRegistry,
+  type VariantedProps,
+} from "@pacsarcade/variant-engine";
 
 /**
  * plugin-rails -- the guardrail lint (Phase 1 step 4 of the Rails Spec).
@@ -120,6 +128,61 @@ function styleOf(b: LintBlock): StyleObj | undefined {
   return s && typeof s === "object" ? (s as StyleObj) : undefined;
 }
 
+/** the block's screen-override layers, or null when absent/empty (legacy) */
+function styleVariantsOf(b: LintBlock): VariantedProps<StyleObj> | null {
+  const sv = b.props.styleVariants;
+  if (!sv || typeof sv !== "object" || Array.isArray(sv)) return null;
+  const entries = Object.entries(sv as Record<string, unknown>).filter(
+    ([, v]) =>
+      !!v && typeof v === "object" && Object.keys(v as object).length > 0
+  );
+  if (entries.length === 0) return null;
+  return Object.fromEntries(entries) as VariantedProps<StyleObj>;
+}
+
+const REGISTRY_CACHE = new WeakMap<BrandTokens, VariantRegistry>();
+function registryFor(tokens: BrandTokens): VariantRegistry {
+  let reg = REGISTRY_CACHE.get(tokens);
+  if (!reg) {
+    reg = createRegistry(screenVariantsFromBreakpoints(tokens.breakpoints));
+    REGISTRY_CACHE.set(tokens, reg);
+  }
+  return reg;
+}
+
+/**
+ * The style contexts a style-aware rule must judge (Phase 2 step 2):
+ * legacy blocks (no styleVariants) yield exactly one — the base, suffix ""
+ * — so 0.1.x findings are byte-identical. Blocks carrying overrides add
+ * the EFFECTIVE style at a tablet-active width and at a desktop-active
+ * width (under mobileFirst the desktop combo includes tablet, exactly as
+ * the emitted media queries stack).
+ */
+function effectiveStyles(
+  b: LintBlock,
+  tokens: BrandTokens
+): {
+  style: StyleObj | undefined;
+  suffix: "" | " on tablet" | " on desktop";
+}[] {
+  const base = styleOf(b);
+  const sv = styleVariantsOf(b);
+  if (!sv) return [{ style: base, suffix: "" }];
+  const reg = registryFor(tokens);
+  const { tabletMin, desktopMin } = tokens.breakpoints;
+  return [
+    { style: base, suffix: "" },
+    {
+      style: resolve(reg, base ?? {}, sv, screenComboForWidth(reg, tabletMin)),
+      suffix: " on tablet",
+    },
+    {
+      style: resolve(reg, base ?? {}, sv, screenComboForWidth(reg, desktopMin)),
+      suffix: " on desktop",
+    },
+  ];
+}
+
 /** blocks that render an h-level heading, and which level */
 function headingLevel(b: LintBlock): number | null {
   if (b.type === "Hero") return 1; // Hero renders an h1
@@ -218,35 +281,36 @@ const rules: Record<RuleId, RuleFn> = {
     const out: Omit<Finding, "severity">[] = [];
     for (const v of visits) {
       if (!TEXTY.has(v.block.type)) continue;
-      const s = styleOf(v.block);
-      const colorVal =
-        s?.color && s.color !== "default" ? String(s.color) : null;
-      if (!colorVal) continue; // default colours are the house pairs, AA by design
-      const hex = resolveHex(colorVal, ctx);
-      if (!hex) continue;
-      const size = Number(s?.size ?? 0);
-      const large =
-        size >= 24 || (size === 0 && LARGE_BY_DEFAULT.has(v.block.type));
-      const need = large ? "large" : "aa";
-      for (const theme of ["night", "dawn"] as const) {
-        // keep-dark bands pin tokens to their NIGHT values in both themes
-        // (cartridge's `.keep-dark` override) -- mirror that here.
-        const onForcedNight = v.ground[theme] === ctx.tokens.grounds.night;
-        const textHex = onForcedNight ? hex.night : hex[theme];
-        const grade = gradeOn(textHex, v.ground[theme]);
-        const ok = grade === "aa" || (need === "large" && grade === "large");
-        if (!ok) {
-          out.push({
-            rule: "contrast-min",
-            message: `"${colorVal}" is hard to read in ${
-              theme === "dawn" ? "light" : "dark"
-            } mode here (${
-              large ? "large text needs 3:1" : "body text needs 4.5:1"
-            }). Pick a stronger colour for this spot.`,
-            blockId: v.block.props.id,
-            blockType: v.block.type,
-          });
-          break; // one finding per block is enough
+      for (const { style: s, suffix } of effectiveStyles(v.block, ctx.tokens)) {
+        const colorVal =
+          s?.color && s.color !== "default" ? String(s.color) : null;
+        if (!colorVal) continue; // default colours are the house pairs, AA by design
+        const hex = resolveHex(colorVal, ctx);
+        if (!hex) continue;
+        const size = Number(s?.size ?? 0);
+        const large =
+          size >= 24 || (size === 0 && LARGE_BY_DEFAULT.has(v.block.type));
+        const need = large ? "large" : "aa";
+        for (const theme of ["night", "dawn"] as const) {
+          // keep-dark bands pin tokens to their NIGHT values in both themes
+          // (cartridge's `.keep-dark` override) -- mirror that here.
+          const onForcedNight = v.ground[theme] === ctx.tokens.grounds.night;
+          const textHex = onForcedNight ? hex.night : hex[theme];
+          const grade = gradeOn(textHex, v.ground[theme]);
+          const ok = grade === "aa" || (need === "large" && grade === "large");
+          if (!ok) {
+            out.push({
+              rule: "contrast-min",
+              message: `"${colorVal}" is hard to read in ${
+                theme === "dawn" ? "light" : "dark"
+              } mode here${suffix} (${
+                large ? "large text needs 3:1" : "body text needs 4.5:1"
+              }). Pick a stronger colour for this spot.`,
+              blockId: v.block.props.id,
+              blockType: v.block.type,
+            });
+            break; // one finding per block per screen context is enough
+          }
         }
       }
     }
@@ -411,14 +475,16 @@ const rules: Record<RuleId, RuleFn> = {
     const out: Omit<Finding, "severity">[] = [];
     for (const v of visits) {
       if (v.block.type !== "Text" && v.block.type !== "RichText") continue;
-      const size = Number(styleOf(v.block)?.size ?? 0);
-      if (size > 0 && size < floor) {
-        out.push({
-          rule: "body-size",
-          message: `Body text at ${size}px is below the brand's smallest size (${floor}px) — hard to read on a phone.`,
-          blockId: v.block.props.id,
-          blockType: v.block.type,
-        });
+      for (const { style: s, suffix } of effectiveStyles(v.block, ctx.tokens)) {
+        const size = Number(s?.size ?? 0);
+        if (size > 0 && size < floor) {
+          out.push({
+            rule: "body-size",
+            message: `Body text at ${size}px${suffix} is below the brand's smallest size (${floor}px) — hard to read on a phone.`,
+            blockId: v.block.props.id,
+            blockType: v.block.type,
+          });
+        }
       }
     }
     return out;

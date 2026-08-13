@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig/react-library.json",
+  "include": ["."],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["node", "jest"],
+    "paths": {
+      "@puckeditor/core": ["../core/bundle/core.ts"],
+      "@pacsarcade/variant-engine": ["../variant-engine/src/index.ts"]
+    }
+  }
+}
