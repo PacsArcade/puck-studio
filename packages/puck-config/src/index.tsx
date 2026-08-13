@@ -1,5 +1,6 @@
 import type { Config, Slot } from "@puckeditor/core";
 import ColorField from "./color-field";
+import { ONECOCREATION, colorCss, fontCss, type BrandTokens } from "./tokens";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
@@ -36,22 +37,12 @@ type StyleProps = {
   spaceBelow: number;
 };
 
-const FONT_MAP: Record<Exclude<FontKey, "default">, string> = {
-  display: "var(--font-h1)",
-  body: "var(--font-body)",
-  accent: "var(--font-h3)",
-};
-const COLOR_MAP: Record<string, string> = {
-  ink: "var(--ink-strong)",
-  body: "var(--ink-body)",
-  muted: "var(--muted)",
-  gold: "var(--gold-deep)",
-  goldBright: "var(--gold-2)",
-  teal: "var(--teal-bright)",
-  rose: "var(--rose)",
-  purple: "var(--lavender)",
-  white: "#ffffff",
-};
+/* Font and colour resolution reads the brand's TOKENS (Phase 1 step 1).
+   Values are identical to the old hard-coded maps for One Cocreation --
+   zero behavior change -- but the registry is brand-ready: pass another
+   BrandTokens via createConfig and every block follows. */
+const DEFAULT_TOKENS: BrandTokens = ONECOCREATION;
+let ACTIVE_TOKENS: BrandTokens = DEFAULT_TOKENS;
 
 const STYLE_FIELD = {
   type: "object" as const,
@@ -96,12 +87,13 @@ const DEFAULT_STYLE: StyleProps = {
 function typo(s?: StyleProps): React.CSSProperties {
   const c: React.CSSProperties = {};
   if (!s) return c;
-  if (s.font && s.font !== "default") c.fontFamily = FONT_MAP[s.font];
+  if (s.font && s.font !== "default")
+    c.fontFamily = fontCss(ACTIVE_TOKENS, s.font);
   if (s.size) c.fontSize = `${s.size}px`;
   if (s.kerning) c.letterSpacing = `${s.kerning}px`;
   if (s.lineHeight) c.lineHeight = s.lineHeight;
   if (s.color && s.color !== "default")
-    c.color = s.color.startsWith("#") ? s.color : COLOR_MAP[s.color] ?? s.color;
+    c.color = colorCss(ACTIVE_TOKENS, s.color);
   return c;
 }
 /** the wrapper: alignment + vertical spacing */
@@ -246,11 +238,14 @@ function ytId(v: string): string {
 export interface PuckConfigOptions {
   /** brand background photos consumed by the Band block */
   assets: { nebula: string; meteors: string };
+  /** the brand's design tokens; defaults to One Cocreation */
+  tokens?: BrandTokens;
 }
 
 export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
   const NEBULA = opts.assets.nebula;
   const METEORS = opts.assets.meteors;
+  ACTIVE_TOKENS = opts.tokens ?? DEFAULT_TOKENS;
   return {
     components: {
       Eyebrow: {
