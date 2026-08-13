@@ -1,14 +1,14 @@
 import type { ReactElement } from "react";
 import type { Config, Slot } from "@puckeditor/core";
 import ColorField from "./color-field";
-import { ONECOCREATION, colorCss, fontCss, type BrandTokens } from "./tokens";
+import { STARTER, colorCss, fontCss, type BrandTokens } from "./tokens";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
  * now the STYLE INSPECTOR (P6, Admiral 2026-08-11: "how can i change font or
  * sizing spacing kern, height, colors"). Every text block carries a `style`
  * object field -- font / size / kerning / line-height / colour / spacing --
- * so Love can tune type the way she'd expect, on-brand (colours and fonts
+ * so an operator can tune type the way they'd expect, on-brand (colours and fonts
  * are house tokens, not arbitrary hex). Plus starter layout blocks: Spacer,
  * Divider, Two columns.
  *
@@ -39,10 +39,10 @@ type StyleProps = {
 };
 
 /* Font and colour resolution reads the brand's TOKENS (Phase 1 step 1).
-   Values are identical to the old hard-coded maps for One Cocreation --
+   Values come entirely from the brand cartridge the host passes in --
    zero behavior change -- but the registry is brand-ready: pass another
    BrandTokens via createConfig and every block follows. */
-const DEFAULT_TOKENS: BrandTokens = ONECOCREATION;
+const DEFAULT_TOKENS: BrandTokens = STARTER;
 let ACTIVE_TOKENS: BrandTokens = DEFAULT_TOKENS;
 
 /* Slot allow-lists (Phase 1 step 3, the Rails Spec matrix) -- enforced by
@@ -62,7 +62,7 @@ const PANEL_DISALLOW = [
 
 /* The Style Inspector's shared `style` object field, GENERATED from the
    brand's tokens (Phase 1 step 2): font menu = the brand's font tokens
-   (Love's no-serif law arrives here as an empty absence), slider bounds =
+   (a brand's no-serif law arrives here as an empty absence), slider bounds =
    the brand's scales, colour control = the token-driven ColorField. */
 function styleField(tokens: BrandTokens) {
   const b = tokens.type.bounds;
@@ -290,7 +290,7 @@ function ytId(v: string): string {
 export interface PuckConfigOptions {
   /** brand background photos consumed by the Band block */
   assets: { nebula: string; meteors: string };
-  /** the brand's design tokens; defaults to One Cocreation */
+  /** the brand's design tokens; defaults to the neutral STARTER cartridge */
   tokens?: BrandTokens;
   /** host-provided media picker (upload + library browser) for image URL
    *  fields; falls back to a plain text field when absent */
@@ -490,7 +490,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
       },
 
       /* RichText -- prose with inline emphasis/colour. Renders the html field
-       directly: Puck writes are operator-gated (Love/Pac only), trusted CMS
+       directly: Puck writes are operator-gated (site operators only), trusted CMS
        content. Allowed inline: <b> <i> <br> and <span style="color:..."> */
       RichText: {
         label: "Rich text",
@@ -657,9 +657,9 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           sub: { type: "text" },
         },
         defaultProps: {
-          days: "Where Heaven and Earth Meet",
-          title: "One Cocreation",
-          sub: "Intuitive sessions with Love",
+          days: "Your kicker line",
+          title: "Your headline",
+          sub: "A sentence about what you do",
         },
         render: ({ days, title, sub }: HeroProps) => (
           <section className="hero" style={{ padding: "60px 0 56px" }}>
@@ -696,7 +696,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align: ALIGN_FIELD,
         },
         defaultProps: {
-          src: "/images/about/love-1.webp",
+          src: "",
           alt: "",
           width: 320,
           radius: "soft",
@@ -739,11 +739,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         },
         defaultProps: {
           tilt: "yes",
-          images: [
-            { src: "/images/about/love-1.webp", alt: "Love" },
-            { src: "/images/about/love-2.webp", alt: "Love" },
-            { src: "/images/about/love-3.webp", alt: "Love" },
-          ],
+          images: [],
         },
         render: ({ images, tilt }: GalleryProps) => (
           <div

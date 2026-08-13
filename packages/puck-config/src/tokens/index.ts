@@ -149,4 +149,4 @@ export function gradeOn(textHex: string, groundHex: string): ContrastGrade {
   return r >= 4.5 ? "aa" : r >= 3 ? "large" : "fails";
 }
 
-export { ONECOCREATION } from "./onecocreation";
+export { STARTER } from "./starter";
