@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { Config, Slot } from "@puckeditor/core";
 import ColorField from "./color-field";
 import { ONECOCREATION, colorCss, fontCss, type BrandTokens } from "./tokens";
@@ -296,7 +297,7 @@ export interface PuckConfigOptions {
   mediaField?: (props: {
     value: string;
     onChange: (v: string) => void;
-  }) => JSX.Element;
+  }) => ReactElement;
 }
 
 /** The library rail's logical order (Puck renders these as collapsible
