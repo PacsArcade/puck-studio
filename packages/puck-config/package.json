@@ -1,6 +1,6 @@
 {
   "name": "@pacsarcade/puck-config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pac's Arcade shared Puck component registry — the house blocks (headings, bands, galleries, toys-to-come), the Style Inspector fields, and the ColorField. Ships raw TSX; hosts consume via transpilePackages. One config, every ship in the fleet.",
   "license": "MIT",
   "repository": "github:PacsArcade/puck-studio",
@@ -8,7 +8,8 @@
     ".": "./src/index.tsx"
   },
   "files": [
-    "src"
+    "src",
+    "MIGRATION.md"
   ],
   "peerDependencies": {
     "@puckeditor/core": ">=0.20",
