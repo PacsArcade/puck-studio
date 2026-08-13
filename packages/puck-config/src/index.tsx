@@ -44,35 +44,71 @@ type StyleProps = {
 const DEFAULT_TOKENS: BrandTokens = ONECOCREATION;
 let ACTIVE_TOKENS: BrandTokens = DEFAULT_TOKENS;
 
-const STYLE_FIELD = {
-  type: "object" as const,
-  objectFields: {
-    font: {
-      type: "select" as const,
-      options: [
-        { label: "Default", value: "default" },
-        { label: "Display (Barlow)", value: "display" },
-        { label: "Body (Helvetica)", value: "body" },
-        { label: "Accent (Lucida)", value: "accent" },
-      ],
+/* The Style Inspector's shared `style` object field, GENERATED from the
+   brand's tokens (Phase 1 step 2): font menu = the brand's font tokens
+   (Love's no-serif law arrives here as an empty absence), slider bounds =
+   the brand's scales, colour control = the token-driven ColorField. */
+function styleField(tokens: BrandTokens) {
+  const b = tokens.type.bounds;
+  return {
+    type: "object" as const,
+    objectFields: {
+      font: {
+        type: "select" as const,
+        options: [
+          { label: "Default", value: "default" },
+          ...Object.entries(tokens.fonts).map(([value, f]) => ({
+            label: f.label,
+            value,
+          })),
+        ],
+      },
+      size: {
+        type: "number" as const,
+        min: 0,
+        max: b.sizePx[1],
+      },
+      kerning: {
+        type: "number" as const,
+        min: b.kerningPx[0],
+        max: b.kerningPx[1],
+      },
+      lineHeight: {
+        type: "number" as const,
+        min: 0,
+        max: b.lineHeight[1],
+        step: 0.1,
+      },
+      color: {
+        type: "custom" as const,
+        render: ({
+          value,
+          onChange,
+        }: {
+          value: string;
+          onChange: (v: string) => void;
+        }) => (
+          <ColorField
+            value={value ?? "default"}
+            onChange={onChange}
+            tokens={tokens}
+          />
+        ),
+      },
+      spaceAbove: {
+        type: "number" as const,
+        min: 0,
+        max: tokens.spacing.maxPx,
+      },
+      spaceBelow: {
+        type: "number" as const,
+        min: 0,
+        max: tokens.spacing.maxPx,
+      },
     },
-    size: { type: "number" as const },
-    kerning: { type: "number" as const },
-    lineHeight: { type: "number" as const },
-    color: {
-      type: "custom" as const,
-      render: ({
-        value,
-        onChange,
-      }: {
-        value: string;
-        onChange: (v: string) => void;
-      }) => <ColorField value={value ?? "default"} onChange={onChange} />,
-    },
-    spaceAbove: { type: "number" as const },
-    spaceBelow: { type: "number" as const },
-  },
-};
+  };
+}
+
 const DEFAULT_STYLE: StyleProps = {
   font: "default",
   size: 0,
@@ -246,6 +282,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
   const NEBULA = opts.assets.nebula;
   const METEORS = opts.assets.meteors;
   ACTIVE_TOKENS = opts.tokens ?? DEFAULT_TOKENS;
+  const STYLE_FIELD = styleField(ACTIVE_TOKENS);
   return {
     components: {
       Eyebrow: {

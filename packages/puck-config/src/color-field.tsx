@@ -1,80 +1,143 @@
 "use client";
 
+import type { BrandTokens } from "./tokens";
+
 /**
- * ColorField — the Style Inspector's colour control (Admiral 2026-08-11:
- * "the color hex picker with the color palettes... nice way to interact and
- * come up with a brand. love's palette might change"). Two ways to pick:
- *   - the house PALETTE swatches (stays on-brand; stored as a token key)
- *   - a native HEX picker (free exploration; stored as "#rrggbb")
- * Used on the practice/test page as a live palette playground, and on any
- * block's colour field everywhere else. The value is a plain string —
- * "default", a token key, or a hex — resolved in puck-config's typo().
+ * ColorField -- the Style Inspector's colour control (Phase 1 step 2: now
+ * GENERATED from the brand's tokens instead of a hard-coded list).
  *
- * A client component (interactive) so puck-config.tsx stays safe to import
- * from the server /p render path (Puck only invokes field renders in the
- * editor, never in <Render>).
+ * Three ways to pick:
+ *   - the brand's colour tokens (stored as the token key, on-brand). Tokens
+ *     whose MEASURED dawn grade is "large" or "fails" carry a corner marker
+ *     and a title explaining it -- the inspector warns before lint ever runs;
+ *   - the brand PALETTE slots p1-p5 (stored as "p1".."p5", resolving to the
+ *     live --p1..--p5 variables -- re-roll the palette, those picks follow);
+ *   - a native HEX picker (free exploration; stored as "#rrggbb").
+ *
+ * The value is a plain string -- "default", a token key, "p1".."p5", or a
+ * hex -- resolved by colorCss() in the registry.
  */
-
-type Swatch = { key: string; css: string; label: string };
-
-const SWATCHES: Swatch[] = [
-  { key: "default", css: "transparent", label: "Default (inherit)" },
-  { key: "ink", css: "var(--ink-strong)", label: "Ink" },
-  { key: "body", css: "var(--ink-body)", label: "Body" },
-  { key: "muted", css: "var(--muted)", label: "Muted" },
-  { key: "gold", css: "var(--gold-deep)", label: "Gold" },
-  { key: "goldBright", css: "var(--gold-2)", label: "Gold bright" },
-  { key: "teal", css: "var(--teal-bright)", label: "Teal" },
-  { key: "rose", css: "var(--rose)", label: "Rose" },
-  { key: "purple", css: "var(--lavender)", label: "Purple" },
-  { key: "white", css: "#ffffff", label: "White" },
-];
 
 export default function ColorField({
   value,
   onChange,
+  tokens,
 }: {
   value: string;
   onChange: (v: string) => void;
+  tokens: BrandTokens;
 }) {
   const v = value || "default";
   const isHex = v.startsWith("#");
 
+  const swBase: React.CSSProperties = {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    cursor: "pointer",
+    padding: 0,
+    position: "relative",
+  };
+  const ring = (selected: boolean): string =>
+    selected
+      ? "2px solid var(--gold-2, #EBCB77)"
+      : "1px solid rgba(139,118,196,.45)";
+
+  const gradeMark = (grade: "aa" | "large" | "fails"): React.ReactNode => {
+    if (grade === "aa") return null;
+    return (
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: -3,
+          right: -3,
+          width: 9,
+          height: 9,
+          borderRadius: 999,
+          background: grade === "fails" ? "#E7899E" : "#EBCB77",
+          border: "1.5px solid #12101f",
+        }}
+      />
+    );
+  };
+
+  const gradeTitle = (
+    label: string,
+    grade: "aa" | "large" | "fails"
+  ): string => {
+    if (grade === "fails")
+      return `${label} — hard to read in light mode (fails contrast)`;
+    if (grade === "large")
+      return `${label} — light mode: headings & labels only (large text)`;
+    return label;
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* brand colour tokens, generated from the cartridge */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {SWATCHES.map((s) => {
-          const selected = v === s.key;
-          return (
-            <button
-              key={s.key}
-              type="button"
-              title={s.label}
-              aria-label={s.label}
-              onClick={() => onChange(s.key)}
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 6,
-                cursor: "pointer",
-                padding: 0,
-                background: s.css,
-                border: selected
-                  ? "2px solid var(--gold-2, #EBCB77)"
-                  : "1px solid rgba(139,118,196,.45)",
-                // a subtle checker so "Default (transparent)" reads as empty
-                backgroundImage:
-                  s.key === "default"
-                    ? "linear-gradient(45deg,#8886 25%,transparent 25%,transparent 75%,#8886 75%),linear-gradient(45deg,#8886 25%,transparent 25%,transparent 75%,#8886 75%)"
-                    : undefined,
-                backgroundSize: s.key === "default" ? "8px 8px" : undefined,
-                backgroundPosition:
-                  s.key === "default" ? "0 0,4px 4px" : undefined,
-              }}
-            />
-          );
-        })}
+        <button
+          type="button"
+          title="Default (inherit)"
+          aria-label="Default (inherit)"
+          onClick={() => onChange("default")}
+          style={{
+            ...swBase,
+            background: "transparent",
+            border: ring(v === "default"),
+            backgroundImage:
+              "linear-gradient(45deg,#8886 25%,transparent 25%,transparent 75%,#8886 75%),linear-gradient(45deg,#8886 25%,transparent 25%,transparent 75%,#8886 75%)",
+            backgroundSize: "8px 8px",
+            backgroundPosition: "0 0,4px 4px",
+          }}
+        />
+        {Object.entries(tokens.colors).map(([key, t]) => (
+          <button
+            key={key}
+            type="button"
+            title={gradeTitle(t.label, t.grade.dawn)}
+            aria-label={t.label}
+            onClick={() => onChange(key)}
+            style={{ ...swBase, background: t.css, border: ring(v === key) }}
+          >
+            {gradeMark(t.grade.dawn)}
+          </button>
+        ))}
       </div>
+
+      {/* the brand palette slots — live vars, re-roll and these follow */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span
+          style={{
+            fontSize: 9,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: "var(--puck-color-grey-05, #9a8fae)",
+            fontFamily: "monospace",
+          }}
+        >
+          palette
+        </span>
+        {tokens.palette.map((slot) => (
+          <button
+            key={slot.key}
+            type="button"
+            title={`${slot.key} · ${slot.label} — ${slot.hint}`}
+            aria-label={`palette ${slot.label}`}
+            onClick={() => onChange(slot.key)}
+            style={{
+              ...swBase,
+              width: 20,
+              height: 20,
+              background: `var(--${slot.key}, ${slot.value})`,
+              border: ring(v === slot.key),
+            }}
+          />
+        ))}
+      </div>
+
+      {/* free hex — the play lane's door */}
       <label
         style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}
       >
@@ -105,7 +168,7 @@ export default function ColorField({
               cursor: "pointer",
               background: "none",
               border: "none",
-              color: "var(--muted, #9a8fae)",
+              color: "var(--puck-color-grey-05, #9a8fae)",
               textDecoration: "underline",
             }}
           >

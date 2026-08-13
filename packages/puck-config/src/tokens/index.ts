@@ -105,13 +105,17 @@ export interface BrandTokens {
 }
 
 /** Resolve a colour field value against the brand: "default" passes through,
- *  a token key resolves to its css, a raw "#hex" passes through (play lane). */
+ *  a token key resolves to its css, a palette slot (p1-p5) resolves to its
+ *  live CSS variable (the host sets --p1..--p5 from the saved brand palette,
+ *  so re-rolling the palette re-skins every block that picked a slot), and a
+ *  raw "#hex" passes through (play lane). */
 export function colorCss(
   tokens: BrandTokens,
   value: string | undefined
 ): string | undefined {
   if (!value || value === "default") return undefined;
   if (value.startsWith("#")) return value;
+  if (/^p[1-5]$/.test(value)) return `var(--${value})`;
   return tokens.colors[value]?.css ?? value;
 }
 
