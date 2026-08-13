@@ -291,14 +291,71 @@ export interface PuckConfigOptions {
   assets: { nebula: string; meteors: string };
   /** the brand's design tokens; defaults to One Cocreation */
   tokens?: BrandTokens;
+  /** host-provided media picker (upload + library browser) for image URL
+   *  fields; falls back to a plain text field when absent */
+  mediaField?: (props: {
+    value: string;
+    onChange: (v: string) => void;
+  }) => JSX.Element;
 }
+
+/** The library rail's logical order (Puck renders these as collapsible
+ *  groups). Legacy blocks stay registered (old pages render) but hidden
+ *  from the rail. */
+const CATEGORIES = {
+  text: {
+    title: "Text",
+    components: [
+      "Heading",
+      "StackedHeading",
+      "Text",
+      "RichText",
+      "Eyebrow",
+      "PullQuote",
+      "Quote",
+      "List",
+      "Faq",
+    ],
+    defaultExpanded: true,
+  },
+  actions: {
+    title: "Actions",
+    components: ["Button", "Buttons"],
+    defaultExpanded: true,
+  },
+  media: {
+    title: "Media",
+    components: ["Image", "Gallery", "Video"],
+    defaultExpanded: false,
+  },
+  layout: {
+    title: "Layout",
+    components: [
+      "Band",
+      "Panel",
+      "TwoColumns",
+      "ThreeColumns",
+      "Hero",
+      "Note",
+      "Card",
+      "Spacer",
+      "Divider",
+    ],
+    defaultExpanded: false,
+  },
+  other: { title: "Legacy", components: ["GoldButton"], visible: false },
+} as const;
 
 export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
   const NEBULA = opts.assets.nebula;
   const METEORS = opts.assets.meteors;
   ACTIVE_TOKENS = opts.tokens ?? DEFAULT_TOKENS;
   const STYLE_FIELD = styleField(ACTIVE_TOKENS);
+  const SRC_FIELD = opts.mediaField
+    ? ({ type: "custom" as const, render: opts.mediaField } as const)
+    : ({ type: "text" as const } as const);
   return {
+    categories: CATEGORIES as OcPuckConfig["categories"],
     components: {
       Eyebrow: {
         label: "Eyebrow label",
@@ -624,7 +681,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
       Image: {
         label: "Image",
         fields: {
-          src: { type: "text" },
+          src: SRC_FIELD,
           alt: { type: "text" },
           width: { type: "number" },
           radius: {
@@ -676,7 +733,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           },
           images: {
             type: "array",
-            arrayFields: { src: { type: "text" }, alt: { type: "text" } },
+            arrayFields: { src: SRC_FIELD, alt: { type: "text" } },
           },
         },
         defaultProps: {
