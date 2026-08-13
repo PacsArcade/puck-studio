@@ -44,6 +44,21 @@ type StyleProps = {
 const DEFAULT_TOKENS: BrandTokens = ONECOCREATION;
 let ACTIVE_TOKENS: BrandTokens = DEFAULT_TOKENS;
 
+/* Slot allow-lists (Phase 1 step 3, the Rails Spec matrix) -- enforced by
+   Puck AT DROP TIME: a rejected block simply cannot land in the slot.
+   Full-width blocks (Band, Hero) are disallowed in every nested slot, which
+   makes them root-only by construction. Panel accepts content, not layout
+   (no Panel/Columns nesting). Columns-in-columns stays allowed here -- the
+   matrix grades it "warn", which is lint's job (step 4), not the drop's.
+   Depth cap 3 is also lint's (it needs tree context a slot can't see). */
+const NO_FULL_WIDTH = ["Band", "Hero"];
+const PANEL_DISALLOW = [
+  ...NO_FULL_WIDTH,
+  "Panel",
+  "TwoColumns",
+  "ThreeColumns",
+];
+
 /* The Style Inspector's shared `style` object field, GENERATED from the
    brand's tokens (Phase 1 step 2): font menu = the brand's font tokens
    (Love's no-serif law arrives here as an empty absence), slider bounds =
@@ -793,7 +808,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
               { label: "Follow theme", value: "theme" },
             ],
           },
-          content: { type: "slot" },
+          content: { type: "slot", disallow: NO_FULL_WIDTH },
         },
         defaultProps: { background: "sky-glass", hold: "theme", content: [] },
         render: ({ background, hold, content: Content }) => {
@@ -866,8 +881,8 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
               { label: "Center", value: "center" },
             ],
           },
-          left: { type: "slot" },
-          right: { type: "slot" },
+          left: { type: "slot", disallow: NO_FULL_WIDTH },
+          right: { type: "slot", disallow: NO_FULL_WIDTH },
         },
         defaultProps: { gap: 26, valign: "top", left: [], right: [] },
         render: ({ gap, valign, left: Left, right: Right }) => (
@@ -901,9 +916,9 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
               { label: "Center", value: "center" },
             ],
           },
-          a: { type: "slot" },
-          b: { type: "slot" },
-          c: { type: "slot" },
+          a: { type: "slot", disallow: NO_FULL_WIDTH },
+          b: { type: "slot", disallow: NO_FULL_WIDTH },
+          c: { type: "slot", disallow: NO_FULL_WIDTH },
         },
         defaultProps: { gap: 22, valign: "top", a: [], b: [], c: [] },
         render: ({ gap, valign, a: A, b: B, c: C }) => (
@@ -988,7 +1003,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
 
       Panel: {
         label: "Glass panel",
-        fields: { content: { type: "slot" } },
+        fields: { content: { type: "slot", disallow: PANEL_DISALLOW } },
         defaultProps: { content: [] },
         render: ({ content: Content }) => (
           <div
