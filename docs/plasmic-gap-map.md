@@ -36,7 +36,7 @@ Hot spots: `client/studio-ctx/StudioCtx.tsx` 8,262 lines (the god object),
   window and dispatches the resulting changes to **four consumers: undo log,
   incremental CSS regen, save queue, multiplayer rebase**.
 
-**Steal:** the change-log pipeline. Puck's plain-JSON model gives none of it free,
+**Inspiration:** the change-log pipeline. Puck's plain-JSON model gives none of it free,
 but ~80% is reachable with an immer `produceWithPatches` stream feeding the same
 four consumers. This is the prerequisite for W5 undo, incremental CSS, and W6.
 
@@ -54,7 +54,7 @@ Files: `shared/Variants.ts:407-560`, `shared/responsiveness.ts`,
 `shared/variant-sort.ts`, `client/components/sidebar-tabs/ResponsivenessPanel/`,
 `client/components/studio/arenas/PageArenaLayout.tsx`.
 
-**Steal:** breakpoints-as-variants = one cascade engine, not two. The device
+**Inspiration:** breakpoints-as-variants = one cascade engine, not two. The device
 preset table in `shared/responsiveness.ts` is copy-paste-able.
 
 ## 2. Component variants (our W3)
@@ -69,7 +69,7 @@ sort by an 8-tuple rank, merge in priority order (`effective-variant-setting.ts`
 Editing UX is a **pin model** (`PinManager.ts`): "target" (where edits record)
 and "active" (what renders) are decoupled — preview hover while editing base.
 
-**Steal:** the target-vs-active pin split; the single discriminated Variant class;
+**Inspiration:** the target-vs-active pin split; the single discriminated Variant class;
 auto-generated artboard-per-variant grids (variant coverage as a visual matrix).
 
 ## 3. Style inspector
@@ -83,7 +83,7 @@ scattered conditionals. The crown jewel is `DefinedIndicatorType`
 as the colored dot beside each control with a popover explaining WHICH
 variant/mixin/theme won and one-click unset/jump-to-source.
 
-**Steal verbatim:** the DefinedIndicator union. Explaining *why* a value is what
+**Take the idea whole:** the DefinedIndicator union. Explaining *why* a value is what
 it is costs one pure function over the style stack and is the single
 highest-leverage inspector affordance.
 
@@ -96,7 +96,7 @@ published PkgVersions (semver + tags), and real branches with a commit graph +
 three-way model merge + conflict-picking UI (`shared/site-diffs/merge-core.ts`).
 ~250 numbered bundle migrations — the true cost of an evolving document schema.
 
-**Steal:** record view state alongside model changes. Log-based undo is what
+**Inspiration:** record view state alongside model changes. Log-based undo is what
 makes "undo one collaborator's change" tractable later.
 
 ## 5. Multiplayer (our W6)
@@ -108,7 +108,7 @@ local + server rebase at revision granularity: on conflict, undo local unsaved
 changes → apply server bundle → replay yours → resolve (only tractable because
 of the §0 change log). Fallback pessimistic mode: edit-lock banner + read-only.
 
-**Steal:** presence-over-websockets decoupled from document sync. Presence is a
+**Inspiration:** presence-over-websockets decoupled from document sync. Presence is a
 weekend; rebase is a quarter.
 
 ## 6. Page management (our W4)
@@ -119,7 +119,7 @@ A project holds a flat components map; a component IS a page iff it has
 matrix), plus free-form mixed arenas. **Folders are fake** — parsed from `/` in
 names (`folders-util.ts`); zero schema, zero migration, rename = move.
 
-**Steal:** folders-as-name-prefixes; arenas as *views over components* rather
+**Inspiration:** folders-as-name-prefixes; arenas as *views over components* rather
 than a pages list.
 
 ## 7. Tokens / design system (our W2 — already partly shipped)
@@ -134,7 +134,7 @@ default styles on insert). Token change → regenerate ONE `plasmic-vars`
 stylesheet pushed into every artboard iframe: whole-canvas repaint, no re-render.
 
 **Validation for us:** our BrandTokens + palette `var(--pN)` approach is the same
-shape. **Steal:** varianted token values, `addItemPrefs`.
+shape. **Inspiration:** varianted token values, `addItemPrefs`.
 
 ## 8. Canvas architecture — the big one
 
@@ -149,7 +149,7 @@ padding drag handles, drop markers, measure tool) lives OUTSIDE the iframe in a
 "scaler" coordinate space with zoom/scroll transforms. Spotlight mode dims
 everything but the focused nested component via an overlay hole.
 
-**Steal, in order:** (a) iframe-per-artboard with real injected CSS — the whole
+**Inspiration, in order:** (a) iframe-per-artboard with real injected CSS — the whole
 ballgame for a responsive builder; (b) incremental per-component stylesheet
 regen; (c) the scaler space so overlays stay crisp at any zoom.
 
