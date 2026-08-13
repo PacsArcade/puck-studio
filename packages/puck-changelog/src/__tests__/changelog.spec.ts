@@ -60,7 +60,7 @@ describe("createChangelog", () => {
     expect(log.records()[0].rev).toBe(41);
   });
 
-  it("skips ui-only and zone-registration actions", () => {
+  it("skips ui-only actions", () => {
     const data = makeData();
     const log = createChangelog(data);
     const next = editText(data, "changed");
@@ -70,19 +70,52 @@ describe("createChangelog", () => {
       mkState(next),
       mkState(data)
     );
+
+    expect(log.records()).toHaveLength(0);
+    expect(log.rev()).toBe(0);
+  });
+
+  it("records zone actions that mutate data.zones, keeping the replay invariant", () => {
+    // Core's unregisterZone DELETES the zone's content out of data.zones
+    // (into a module cache) and registerZone restores it — real data
+    // mutations. Skipping them would break replay(base, records) === data.
+    const data = makeData();
+    data.zones = { "a:extras": [block("z-1", "Text", { text: "zoned" })] };
+
+    const log = createChangelog(data);
+
+    const unregistered = { ...data, zones: {} };
     log.onAction(
-      { type: "registerZone", zone: "z" } as PuckAction,
-      mkState(next),
+      { type: "unregisterZone", zone: "a:extras" } as PuckAction,
+      mkState(unregistered),
       mkState(data)
     );
+
+    const reregistered = { ...unregistered, zones: data.zones };
     log.onAction(
-      { type: "unregisterZone", zone: "z" } as PuckAction,
-      mkState(next),
+      { type: "registerZone", zone: "a:extras" } as PuckAction,
+      mkState(reregistered),
+      mkState(unregistered)
+    );
+
+    expect(log.records().map((r) => r.action)).toEqual([
+      "unregisterZone",
+      "registerZone",
+    ]);
+    expect(log.replay(log.base().data, log.records())).toEqual(reregistered);
+  });
+
+  it("suppresses zone actions that leave data identity unchanged", () => {
+    const data = makeData();
+    const log = createChangelog(data);
+
+    log.onAction(
+      { type: "registerZone", zone: "z" } as PuckAction,
+      mkState(data),
       mkState(data)
     );
 
     expect(log.records()).toHaveLength(0);
-    expect(log.rev()).toBe(0);
   });
 
   it("skips actions where data identity is unchanged", () => {
@@ -142,6 +175,39 @@ describe("createChangelog", () => {
 
     expect(log.records()[0].origin).toBe("copilot");
     expect(log.records()[1].origin).toBe("editor");
+  });
+
+  it("a no-op tagged apply consumes the tag instead of leaking it to the next human edit", () => {
+    const data = makeData();
+    const log = createChangelog(data);
+
+    // Tagged apply that turns out to change nothing (deep-equal data).
+    log.markNextOrigin("copilot");
+    const sameButNew = { ...data, content: [...data.content] };
+    log.onAction(setData, mkState(sameButNew), mkState(data));
+    expect(log.records()).toHaveLength(0);
+
+    // The next unrelated human edit must NOT steal the copilot tag.
+    const next = editText(data, "human edit");
+    log.onAction(setData, mkState(next), mkState(data));
+
+    expect(log.records()).toHaveLength(1);
+    expect(log.records()[0].origin).toBe("editor");
+  });
+
+  it("any non-setUi action consumes the tag, even identity-unchanged ones", () => {
+    const data = makeData();
+    const log = createChangelog(data);
+
+    log.markNextOrigin("copilot");
+
+    // Unrelated dispatch that doesn't touch data — consumes the tag.
+    log.onAction(setData, mkState(data), mkState(data));
+
+    const next = editText(data, "later");
+    log.onAction(setData, mkState(next), mkState(data));
+
+    expect(log.records()[0].origin).toBe("editor");
   });
 
   it("emits every record to subscribers and onRecord, until unsubscribed", () => {
@@ -205,6 +271,24 @@ describe("createChangelog", () => {
     expect(snap.base).toEqual({ rev: 5, data });
     expect(snap.records).toHaveLength(1);
     expect(JSON.parse(JSON.stringify(snap))).toEqual(snap);
+  });
+
+  it("serialized snapshots are isolated from later in-place retags", () => {
+    const data = makeData();
+    const log = createChangelog(data);
+
+    const next = editText(data, "snap");
+    log.onAction(setData, mkState(next), mkState(data));
+
+    const snap = log.serialize();
+    expect(snap.records[0].origin).toBe("editor");
+
+    // The React bridge retags the live record in place (undo/redo).
+    (log as unknown as { _retagLast(origin: string): void })._retagLast("undo");
+
+    expect(log.records()[0].origin).toBe("undo");
+    // The snapshot taken earlier must not have moved.
+    expect(snap.records[0].origin).toBe("editor");
   });
 
   it("replay applies records over an arbitrary base", () => {

@@ -60,8 +60,10 @@ export interface ChangelogOptions {
 
 export interface Changelog {
   /**
-   * Feed this to `<Puck onAction>`. Skips ui-only and zone-registration
-   * actions, and any action where data identity is unchanged.
+   * Feed this to `<Puck onAction>`. Skips ui-only actions and any action
+   * where the data is unchanged (same identity or deep-equal). Zone
+   * registration actions ARE recorded when they change `data.zones`
+   * (core really mutates zones through its zone cache).
    */
   onAction(
     action: PuckAction,
@@ -76,10 +78,21 @@ export interface Changelog {
   base(): { rev: number; data: Data };
   /** Stream every new record. Returns an unsubscribe function. */
   subscribe(fn: (rec: ChangeRecord) => void): () => void;
-  /** Tag only the next record with `origin`, then reset to "editor". */
+  /**
+   * Tag the NEXT data-action attempt with `origin`, then reset to
+   * "editor". The tag is a one-shot consumed by the next non-setUi
+   * action even when that action turns out to record nothing (identity
+   * unchanged or zero patches) — a no-op tagged apply wastes its tag
+   * rather than mislabeling a later unrelated edit.
+   */
   markNextOrigin(origin: ChangeOrigin): void;
   /** Apply records' forward patches over a base data tree. */
   replay(base: Data, recs: readonly ChangeRecord[]): Data;
-  /** JSON-safe snapshot: { version, rev, base, records }. */
+  /**
+   * JSON-safe snapshot: { version, rev, base, records }. Records are
+   * deep-copied, so later in-place retags never mutate a snapshot.
+   * JSON-safety holds only for JSON-safe payload values (Puck Data is
+   * JSON; the copy is a guard, not a license).
+   */
   serialize(): SerializedLog;
 }

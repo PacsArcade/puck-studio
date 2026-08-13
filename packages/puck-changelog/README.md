@@ -44,8 +44,8 @@ Ships raw TypeScript (`files: ["src"]`); hosts consume via
 ```bash
 cd packages/puck-changelog
 npm pack
-gh release create puck-changelog-v0.1.0 pacsarcade-puck-changelog-0.1.0.tgz \
-  --repo PacsArcade/puck-studio --title "puck-changelog 0.1.0" --notes "..."
+gh release create puck-changelog-v0.1.1 pacsarcade-puck-changelog-0.1.1.tgz \
+  --repo PacsArcade/puck-studio --title "puck-changelog 0.1.1" --notes "..."
 ```
 
 Hosts install from the release tarball URL. Never published to npm.

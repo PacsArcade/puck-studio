@@ -10,8 +10,24 @@ import type {
   SerializedLog,
 } from "./types";
 
-/** Actions that never touch data — not worth a diff. */
-const SKIP_ACTIONS = new Set(["setUi", "registerZone", "unregisterZone"]);
+/**
+ * Actions that never touch data — not worth a diff.
+ *
+ * Note: registerZone/unregisterZone are NOT skipped. Core's
+ * unregisterZoneAction deletes the zone's content out of `data.zones`
+ * (into a module-level cache) and registerZoneAction restores it
+ * (core/reducer/actions/register-zone.ts) — real data mutations that must
+ * be recorded or `replay(base, records)` stops equalling current data.
+ * True no-op zone actions are suppressed by the identity and zero-patch
+ * early returns below.
+ */
+const SKIP_ACTIONS = new Set(["setUi"]);
+
+/** Deep-copy a JSON-safe value (records hold JSON-safe Puck Data). */
+const deepCopy = <T>(v: T): T =>
+  typeof structuredClone === "function"
+    ? structuredClone(v)
+    : (JSON.parse(JSON.stringify(v)) as T);
 
 const DEFAULT_MAX_RECORDS = 500;
 
@@ -58,6 +74,13 @@ export const createChangelog = (
     onAction(action: PuckAction, appState: AppState, prevAppState: AppState) {
       if (SKIP_ACTIONS.has(action.type)) return;
 
+      // Every data-action ATTEMPT consumes the pending origin — even one
+      // that records nothing (identity-unchanged or zero-patch). A no-op
+      // tagged apply wastes its tag rather than leaking it onto the next
+      // unrelated human edit.
+      const origin = pendingOrigin ?? "editor";
+      pendingOrigin = null;
+
       // Identity check: Puck's reducer returns the same data reference
       // when an action didn't touch data.
       if (appState.data === prevAppState.data) return;
@@ -67,8 +90,6 @@ export const createChangelog = (
       // New identity but deep-equal — nothing actually changed.
       if (patches.length === 0) return;
 
-      const origin = pendingOrigin ?? "editor";
-      pendingOrigin = null;
       rev += 1;
 
       const rec: ChangeRecord = {
@@ -125,11 +146,16 @@ export const createChangelog = (
     },
 
     serialize(): SerializedLog {
+      // Records are deep-copied so the snapshot is isolated from later
+      // in-place mutation (the React bridge's targeted retag flips
+      // `origin` on the live record). JSON-safety of the copy holds only
+      // for JSON-safe payload values — Puck Data is JSON, so this is a
+      // guard, not a license to log arbitrary objects.
       return {
         version: 1,
         rev,
         base: { rev: base.rev, data: base.data },
-        records: [...records],
+        records: deepCopy(records),
       };
     },
 

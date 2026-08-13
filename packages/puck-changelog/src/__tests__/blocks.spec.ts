@@ -119,6 +119,86 @@ describe("changedBlockIds", () => {
     expect(changedBlockIds(patches, next)).toEqual(["cols-1"]);
   });
 
+  it("does not attribute block-shaped prop VALUES — blocks live at slot positions only", () => {
+    // A block-shaped object stored as an ordinary prop value (a template,
+    // a copied snippet…) is data, not a block on the page.
+    const next: any = JSON.parse(JSON.stringify(page));
+    next.content[1].props.template = {
+      type: "Button",
+      props: { id: "tmpl-1", label: "stored" },
+    };
+
+    // Edit INSIDE the stored value → attributed to the enclosing real
+    // block, never to the stored value's id.
+    const editInside: Patch[] = [
+      {
+        op: "replace",
+        path: ["content", 1, "props", "template", "props", "label"],
+        value: "edited",
+      },
+    ];
+    expect(changedBlockIds(editInside, next)).toEqual(["cta-1"]);
+
+    // Replace the stored value wholesale → same: cta-1, not tmpl-1.
+    const replaceValue: Patch[] = [
+      {
+        op: "replace",
+        path: ["content", 1, "props", "template"],
+        value: { type: "Button", props: { id: "tmpl-2", label: "new" } },
+      },
+    ];
+    expect(changedBlockIds(replaceValue, next)).toEqual(["cta-1"]);
+  });
+
+  it("empty-string ids never attribute — the change falls to the enclosing block without crashing", () => {
+    const next: any = JSON.parse(JSON.stringify(page));
+    // An id-less (empty string) block inside band-1's slot.
+    next.content[0].props.content.push({
+      type: "Text",
+      props: { id: "", text: "anon" },
+    });
+
+    // Edit inside the id-"" block → falls through to band-1.
+    const editInside: Patch[] = [
+      {
+        op: "replace",
+        path: ["content", 0, "props", "content", 2, "props", "text"],
+        value: "edited",
+      },
+    ];
+    expect(changedBlockIds(editInside, next)).toEqual(["band-1"]);
+
+    // Adding a block whose id is "" at a slot position attributes nothing
+    // for the value itself — only the enclosing block.
+    const addAnon: Patch[] = [
+      {
+        op: "add",
+        path: ["content", 0, "props", "content", 2],
+        value: { type: "Text", props: { id: "", text: "anon" } },
+      },
+    ];
+    expect(changedBlockIds(addAnon, next)).toEqual(["band-1"]);
+  });
+
+  it("still detects sibling slots when one member has an empty-string id", () => {
+    const next: any = JSON.parse(JSON.stringify(page));
+    next.content[0].props.content.push({
+      type: "Text",
+      props: { id: "", text: "anon" },
+    });
+
+    // The array stays a slot (empty id still matches the block SHAPE), so
+    // a valid sibling keeps attributing normally.
+    const patches: Patch[] = [
+      {
+        op: "replace",
+        path: ["content", 0, "props", "content", 0, "props", "text"],
+        value: "edited",
+      },
+    ];
+    expect(changedBlockIds(patches, next)).toEqual(["text-1"]);
+  });
+
   it("dedupes ids across patches", () => {
     const patches: Patch[] = [
       { op: "replace", path: ["content", 1, "props", "label"], value: "A" },

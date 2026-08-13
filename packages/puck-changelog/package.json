@@ -1,6 +1,6 @@
 {
   "name": "@pacsarcade/puck-changelog",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The change-log substrate for puck-studio — a reference-pruned patch stream over Puck's onAction, with inverse patches, block attribution, a ring buffer that folds into its base, and a React bridge that rides Puck's own undo history. One log, four consumers to come: undo view-state, incremental CSS, save queue, multiplayer rebase.",
   "license": "MIT",
   "repository": "github:PacsArcade/puck-studio",

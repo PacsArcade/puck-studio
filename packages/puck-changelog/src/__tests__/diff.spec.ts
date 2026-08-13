@@ -130,6 +130,60 @@ describe("refDiff round-trip", () => {
     roundTrip(prev, next);
   });
 
+  it("treats Date values as leaves — a changed Date emits a replace patch", () => {
+    // Dates have no own enumerable keys: descending into them as objects
+    // would compare {} to {} and emit ZERO patches for different times.
+    const prev = {
+      root: { props: { publishedAt: new Date("2026-01-01T00:00:00Z") } },
+      content: [],
+    };
+    const next = {
+      root: { props: { publishedAt: new Date("2026-08-13T00:00:00Z") } },
+      content: [],
+    };
+
+    const { patches, inverse } = refDiff(prev, next);
+
+    expect(patches).toEqual([
+      {
+        op: "replace",
+        path: ["root", "props", "publishedAt"],
+        value: next.root.props.publishedAt,
+      },
+    ]);
+    expect(inverse).toEqual([
+      {
+        op: "replace",
+        path: ["root", "props", "publishedAt"],
+        value: prev.root.props.publishedAt,
+      },
+    ]);
+  });
+
+  it("treats class instances as leaves — changed instances emit a replace patch", () => {
+    class Money {
+      constructor(public sats: number) {}
+    }
+
+    const prev = { root: { props: { price: new Money(100) } }, content: [] };
+    const next = { root: { props: { price: new Money(250) } }, content: [] };
+
+    const { patches } = refDiff(prev, next);
+
+    expect(patches).toEqual([
+      {
+        op: "replace",
+        path: ["root", "props", "price"],
+        value: next.root.props.price,
+      },
+    ]);
+    // Identical reference still prunes — no patch.
+    const shared = new Money(1);
+    const a = { root: { props: { price: shared } }, content: [] };
+    const b = { root: { props: { price: shared } }, content: [] };
+    expect(refDiff(a, b).patches).toEqual([]);
+  });
+
   it("round-trips slot array growth and shrink together", () => {
     const prev = makePage();
     const next = makePage();

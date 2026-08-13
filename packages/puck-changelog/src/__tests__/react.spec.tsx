@@ -59,7 +59,7 @@ class ResizeObserver {
 import { Puck, useGetPuck } from "@puckeditor/core";
 import type { Config, Data } from "@puckeditor/core";
 import { createChangelog } from "../changelog";
-import { ChangelogBridge, useApplyData } from "../react";
+import { ChangelogBridge, useApplyData, _pruneSnapshots } from "../react";
 import type { Changelog } from "../types";
 
 const config: Config = {
@@ -241,5 +241,136 @@ describe("changelog inside <Puck>", () => {
 
     const after = log.records();
     expect(after[after.length - 1].origin).toBe("redo");
+  });
+
+  it("classifies an edit after undo as a new entry, never a redo (redo-tail truncation)", async () => {
+    const log = createChangelog(makeData());
+    const captureViewState = jest.fn(() => "view");
+    const restoreViewState = jest.fn();
+    const harness = await setup(log, { captureViewState, restoreViewState });
+
+    await insert(harness, 0);
+    await wait(350);
+    await insert(harness, 1);
+    await wait(350);
+
+    await act(async () => {
+      harness.getPuck().history.back();
+    });
+    await flush();
+
+    const recsAfterUndo = log.records();
+    expect(recsAfterUndo[recsAfterUndo.length - 1].origin).toBe("undo");
+    expect(restoreViewState).toHaveBeenCalledTimes(1);
+
+    const capturesBefore = captureViewState.mock.calls.length;
+
+    // A fresh edit after undo TRUNCATES the redo tail: the history count
+    // shrinks or stays flat while the index moves FORWARD — the trap that
+    // breaks count-based classification into a bogus "redo".
+    await insert(harness, 0);
+    await wait(350);
+
+    const records = log.records();
+    const last = records[records.length - 1];
+    expect(last.action).toBe("insert");
+    expect(last.origin).toBe("editor"); // not "redo"
+
+    // The new entry got its own view-state snapshot...
+    expect(captureViewState.mock.calls.length).toBe(capturesBefore + 1);
+    // ...and no bogus restore fired.
+    expect(restoreViewState).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the re-tag when the history move's set is not the only new record", async () => {
+    const log = createChangelog(makeData());
+    const harness = await setup(log);
+
+    await insert(harness, 0);
+    await wait(350);
+    await insert(harness, 1);
+    await wait(350);
+
+    // Interleave: an edit whose debounced history entry is still pending,
+    // then an immediate undo. TWO records land before the bridge looks
+    // (the insert and the undo's "set") — the tail is ambiguous, so the
+    // bridge must not blindly re-tag the last record.
+    await act(async () => {
+      harness.getPuck().dispatch({
+        type: "insert",
+        componentType: "Text",
+        destinationIndex: 2,
+        destinationZone: "root:default-zone",
+      });
+      harness.getPuck().history.back();
+    });
+    await flush();
+
+    const records = log.records();
+    const last = records[records.length - 1];
+    expect(last.action).toBe("set");
+    expect(last.origin).toBe("editor"); // left untouched: skip, don't guess
+  });
+
+  it("useApplyData fully replaces the document — a next without zones clears zones", async () => {
+    const initial: Data = {
+      root: { props: {} },
+      content: [],
+      zones: {
+        "band-1:extras": [{ type: "Text", props: { id: "z-1" } }],
+      },
+    };
+    const log = createChangelog(initial);
+    const harness = await setup(log, {}, initial);
+
+    // Core's setData shallow-merges: without the bridge sending a complete
+    // top-level object, the stale zones would silently survive.
+    const next = {
+      root: { props: {} },
+      content: [{ type: "Text", props: { id: "solo" } }],
+    } as Data;
+
+    await act(async () => {
+      harness.applyData(next);
+    });
+
+    const data = harness.getPuck().appState.data;
+    expect(data.content).toHaveLength(1);
+    expect((data as any).zones ?? {}).toEqual({});
+
+    const records = log.records();
+    expect(records[records.length - 1].origin).toBe("programmatic");
+  });
+});
+
+describe("_pruneSnapshots", () => {
+  it("drops snapshots whose entries left the history, keeps live ids and the initial key", () => {
+    const saved = new Map<string, unknown>([
+      ["__puck_changelog_initial__", "v0"],
+      ["h1", "v1"],
+      ["h2", "v2"],
+      ["h3", "v3"],
+    ]);
+
+    // h2 truncated out of the history (undo-then-edit).
+    _pruneSnapshots(saved, new Set(["h1", "h3"]));
+
+    expect([...saved.keys()]).toEqual([
+      "__puck_changelog_initial__",
+      "h1",
+      "h3",
+    ]);
+    expect(saved.get("h1")).toBe("v1");
+  });
+
+  it("bounds the map: only the initial key survives a full truncation", () => {
+    const saved = new Map<string, unknown>([
+      ["__puck_changelog_initial__", "v0"],
+      ["h1", "v1"],
+    ]);
+
+    _pruneSnapshots(saved, new Set());
+
+    expect([...saved.keys()]).toEqual(["__puck_changelog_initial__"]);
   });
 });
