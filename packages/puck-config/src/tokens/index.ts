@@ -69,7 +69,7 @@ export const RULE_IDS = [
   "empty-slot",
 ] as const;
 
-export type RuleId = typeof RULE_IDS[number];
+export type RuleId = (typeof RULE_IDS)[number];
 
 export type BrandRails = Record<RuleId, RuleSeverity>;
 
