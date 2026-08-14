@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createUsePuck } from "@puckeditor/core";
+import { createUsePuck, useGetPuck } from "@puckeditor/core";
 import type { UiState } from "@puckeditor/core";
 import {
   comboKey,
@@ -375,6 +375,79 @@ export function ResponsiveStyleField({
   );
 }
 
+// ── BoundedNumberInput ─────────────────────────────────────────────────────
+
+const clampTo = (n: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, n));
+
+/**
+ * The number input of UnifiedStyleField's rows — bounds-lawful where a raw
+ * `<input type="number">` is not:
+ *
+ *  - CLAMP-OR-REJECT: the old core DefaultField REJECTED out-of-range
+ *    keystrokes (`if (numberValue < field.min) return;`); we keep its
+ *    spirit — no out-of-range value ever lands in the payload — by
+ *    CLAMPING into the row's declared bounds and showing the clamped
+ *    value in the box. NaN never writes at all.
+ *  - EMPTY IS NOT ZERO: `Number("") === 0`, so a cleared box must never
+ *    write mid-typing (the never-write-0 law for override layers). Empty
+ *    commits only on BLUR, and only the owner decides what that means:
+ *    base commits its unset sentinel, breakpoint targets restore the
+ *    effective value and write nothing.
+ */
+function BoundedNumberInput({
+  value,
+  min,
+  max,
+  step,
+  onWrite,
+  onEmptyCommit,
+}: {
+  /** the effective value mirrored while not mid-edit */
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  /** receives a valid, already-clamped number */
+  onWrite: (n: number) => void;
+  /** blur with an empty box — base writes its sentinel, breakpoints no-op */
+  onEmptyCommit: () => void;
+}) {
+  /** in-progress text; null = mirror the effective value */
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="number"
+      value={draft ?? String(value)}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => {
+        const raw = e.currentTarget.value;
+        if (raw.trim() === "") {
+          // empty is "no change" while typing — resolved on blur
+          setDraft(raw);
+          return;
+        }
+        const n = Number(raw);
+        if (Number.isNaN(n)) {
+          // reject outright — a NaN keystroke never writes
+          setDraft(raw);
+          return;
+        }
+        const clamped = clampTo(n, min, max);
+        setDraft(clamped === n ? raw : String(clamped));
+        onWrite(clamped);
+      }}
+      onBlur={() => {
+        if (draft !== null && draft.trim() === "") onEmptyCommit();
+        setDraft(null); // re-mirror the effective value
+      }}
+      style={{ width: 72 }}
+    />
+  );
+}
+
 // ── UnifiedStyleField (Phase 2 step 4: the self-explaining inspector) ──────
 
 /** provenance-state → dot paint. Filled = a real value exists somewhere in
@@ -684,8 +757,8 @@ function ProvenanceDot({
  *  - WRITE ROUTING: target base (phone) → the field's own onChange (the
  *    dense `style` object, exactly as the object field wrote it); target
  *    tablet/desktop → a SIBLING write to styleVariants via the same
- *    replace dispatch core's createOnChange uses (selector looked up at
- *    click time, sparse merge into the target layer);
+ *    replace dispatch core's createOnChange uses (item + selector RE-READ
+ *    from the store at write time, sparse merge into the target layer);
  *  - CLEAR LAWS: at a breakpoint, clear DELETES the key (a present 0
  *    would WIN the sparse merge — the never-write-0 law) and an emptied
  *    layer drops its combo key; at the BASE, 0/"default" IS the unset
@@ -714,8 +787,10 @@ export function UnifiedStyleField({
   const width = useViewportWidth();
   const dispatch = usePuck((s) => s.dispatch);
   const selected = usePuck((s) => s.selectedItem);
-  const getSelectorForId = usePuck((s) => s.getSelectorForId);
+  const getPuck = useGetPuck();
   const [openProp, setOpenProp] = useState<keyof StyleProps | null>(null);
+  /** write-guard warning fired once for this mounted field */
+  const warnedLostWrite = useRef(false);
 
   const reg = registryFor(tokens);
   const targetCombo: VariantCombo = target ? [target] : [];
@@ -724,24 +799,55 @@ export function UnifiedStyleField({
   const settings: StyleVariants =
     (selected?.props as { styleVariants?: StyleVariants } | undefined)
       ?.styleVariants ?? {};
-  const layer: Partial<StyleProps> = target ? settings[targetKey] ?? {} : {};
   const activeCombo =
     typeof width === "number" ? screenComboForWidth(reg, width) : targetCombo;
   const effective = resolve(reg, base, settings, activeCombo);
 
   /** styleVariants lives on a SIBLING prop, so breakpoint writes re-drive
-   *  the exact mechanism core's createOnChange uses: getSelectorForId at
-   *  click time (never a stale index) → one replace dispatch carrying the
-   *  whole item with only styleVariants swapped. `style` is untouched. */
-  const writeVariants = (next: StyleVariants): void => {
-    if (!selected) return;
-    const selector = getSelectorForId(selected.props.id);
-    if (!selector) return;
-    dispatch({
+   *  the exact mechanism core's createOnChange uses: RE-READ the store at
+   *  WRITE time (useGetPuck — the same fresh-state read createOnChange
+   *  does with appStore.getState()), never the render-time snapshot. The
+   *  replace dispatch is built from the FRESHLY-READ item — current props
+   *  spread, only styleVariants swapped — so concurrent edits to sibling
+   *  props are never reverted, and the updater receives the fresh
+   *  styleVariants so the sparse merge itself can't go stale either.
+   *  `style` is untouched.
+   *
+   *  createOnChange also awaits resolveComponentData before replacing;
+   *  no styled block defines resolveData today (documented invariant of
+   *  the styled-block registry), so skipping it is lossless here — and we
+   *  deliberately do NOT reach into private core APIs to await it.
+   *
+   *  If the selected item or its selector is GONE at write time, the
+   *  edit cannot land anywhere lawful: warn once (per mounted field) and
+   *  no-op instead of silently dropping. A toast is the future
+   *  affordance for surfacing this to the operator. */
+  const writeVariants = (
+    update: (current: StyleVariants) => StyleVariants
+  ): void => {
+    const fresh = getPuck();
+    const item = fresh.selectedItem;
+    const selector = item ? fresh.getSelectorForId(item.props.id) : null;
+    if (!item || !selector) {
+      if (!warnedLostWrite.current) {
+        warnedLostWrite.current = true;
+        console.warn(
+          "[puck-config] UnifiedStyleField: style override dropped — no " +
+            "selected item/selector at write time"
+        );
+      }
+      return;
+    }
+    const current =
+      (item.props as { styleVariants?: StyleVariants }).styleVariants ?? {};
+    fresh.dispatch({
       type: "replace",
       destinationIndex: selector.index,
       destinationZone: selector.zone,
-      data: { ...selected, props: { ...selected.props, styleVariants: next } },
+      data: {
+        ...item,
+        props: { ...item.props, styleVariants: update(current) },
+      },
     });
   };
 
@@ -753,15 +859,21 @@ export function UnifiedStyleField({
       onChange({ ...base, [prop]: v });
       return;
     }
-    writeVariants({ ...settings, [targetKey]: { ...layer, [prop]: v } });
+    writeVariants((current) => ({
+      ...current,
+      [targetKey]: { ...(current[targetKey] ?? {}), [prop]: v },
+    }));
   };
 
   /** next styleVariants if `prop` were cleared at the target breakpoint:
    *  DELETE the key (never write 0); an emptied layer drops its combo key. */
-  const variantsWithoutProp = (prop: keyof StyleProps): StyleVariants => {
-    const nextLayer = { ...layer };
+  const variantsWithoutProp = (
+    from: StyleVariants,
+    prop: keyof StyleProps
+  ): StyleVariants => {
+    const nextLayer = { ...(from[targetKey] ?? {}) };
     delete nextLayer[prop];
-    const next: StyleVariants = { ...settings };
+    const next: StyleVariants = { ...from };
     if (Object.keys(nextLayer).length === 0) delete next[targetKey];
     else next[targetKey] = nextLayer;
     return next;
@@ -776,7 +888,7 @@ export function UnifiedStyleField({
       onChange({ ...base, [prop]: DEFAULT_STYLE[prop] } as StyleProps);
       return;
     }
-    writeVariants(variantsWithoutProp(prop));
+    writeVariants((current) => variantsWithoutProp(current, prop));
   };
 
   const provFor = (prop: keyof StyleProps): Provenance<StyleProps> =>
@@ -792,7 +904,7 @@ export function UnifiedStyleField({
           tokens,
           blockType,
           base,
-          variantsWithoutProp(prop),
+          variantsWithoutProp(settings, prop),
           targetCombo,
           prop
         )
@@ -868,14 +980,22 @@ export function UnifiedStyleField({
   ): React.ReactNode => (
     <div style={ROW}>
       <span style={LABEL}>{label}</span>
-      <input
-        type="number"
+      <BoundedNumberInput
         value={effective[prop]}
         min={min}
         max={max}
         step={step}
-        onChange={(e) => setProp(prop, Number(e.currentTarget.value))}
-        style={{ width: 72 }}
+        onWrite={(n) => setProp(prop, n)}
+        onEmptyCommit={() => {
+          // base: an emptied box commits the unset sentinel on blur —
+          // DEFAULT_STYLE[prop] IS base's "unset" (never mid-typing);
+          // breakpoint: empty NEVER writes — Number("") === 0 must not
+          // land in an override layer (the never-write-0 law), so the
+          // effective value simply restores.
+          if (!target) {
+            onChange({ ...base, [prop]: DEFAULT_STYLE[prop] } as StyleProps);
+          }
+        }}
       />
       {dot(prop)}
     </div>
