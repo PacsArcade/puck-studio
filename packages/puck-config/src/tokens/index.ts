@@ -38,11 +38,28 @@ export interface FontToken {
   serif: boolean;
 }
 
+/** the five palette slot names */
+export type PaletteKey = "p1" | "p2" | "p3" | "p4" | "p5";
+
+/**
+ * A serialized variant combo over the brand's token registry
+ * (tokenRegistryFor): "dawn", "tablet", "tablet+dawn", … Canonicalized
+ * with comboKey() on read; unknown keys are IGNORED, never a throw —
+ * forward-only degradation, same law as the page payload.
+ */
+export type TokenComboKey = string;
+
 export interface PaletteSlot {
-  key: "p1" | "p2" | "p3" | "p4" | "p5";
+  key: PaletteKey;
   label: string;
   hint: string;
+  /** the BASE hex — night, always (dark-first law: night is the base
+   *  `value`, never a varianted key) */
   value: string;
+  /** optional per-combo overrides: "dawn" for the light theme, screen
+   *  combos for width-conditional slots. Absent = the slot is one hex
+   *  everywhere, exactly the pre-0.10 behavior. */
+  varianted?: Partial<Record<TokenComboKey, string>>;
 }
 
 export type Severity = "error" | "warn" | "off";
@@ -150,3 +167,14 @@ export function gradeOn(textHex: string, groundHex: string): ContrastGrade {
 }
 
 export { STARTER } from "./starter";
+export {
+  DAWN_VARIANT,
+  effectivePalette,
+  emitTokenVars,
+  tokenRegistryFor,
+} from "./vars";
+export type {
+  EmitTokenVarsOptions,
+  LegacyPaletteOverrides,
+  LivePaletteOverrides,
+} from "./vars";

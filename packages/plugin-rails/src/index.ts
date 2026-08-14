@@ -45,6 +45,9 @@ export interface LintContext {
   lane: Lane;
   /** current saved palette (p1-p5 hex) so slot picks can be contrast-checked */
   palette?: Record<string, string>;
+  /** the palette's EFFECTIVE dawn hexes (varianted tokens, 0.3.0) — a slot
+   *  absent here falls back to its night hex, the pre-varianted behavior */
+  paletteDawn?: Record<string, string>;
 }
 
 export interface Finding {
@@ -221,7 +224,7 @@ function resolveHex(
   if (value.startsWith("#")) return { night: value, dawn: value };
   if (/^p[1-5]$/.test(value)) {
     const hex = ctx.palette?.[value];
-    return hex ? { night: hex, dawn: hex } : null;
+    return hex ? { night: hex, dawn: ctx.paletteDawn?.[value] ?? hex } : null;
   }
   const t = ctx.tokens.colors[value];
   return t ? { night: t.night, dawn: t.dawn } : null;

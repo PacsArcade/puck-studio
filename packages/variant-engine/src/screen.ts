@@ -40,6 +40,31 @@ export const screenVariantsFromBreakpoints = (breakpoints: {
 ];
 
 /**
+ * The intersection of a combo's screen windows (lifted verbatim from
+ * puck-config's responsive/css.ts in 0.3.0 so token emission and block
+ * sheets share ONE definition): minWidths max out, maxWidths min out.
+ * Non-screen members (toggles, groups) contribute nothing; a combo with
+ * no screen members returns null — "no @media wrapper".
+ */
+export function comboScreenSpec(
+  reg: VariantRegistry,
+  combo: VariantCombo
+): ScreenSpec | null {
+  let spec: ScreenSpec | null = null;
+  for (const key of combo) {
+    const v = reg.variants.find((x) => x.key === key);
+    if (v?.kind === "screen" && v.screen) {
+      spec = spec ?? {};
+      if (v.screen.minWidth !== undefined)
+        spec.minWidth = Math.max(spec.minWidth ?? -Infinity, v.screen.minWidth);
+      if (v.screen.maxWidth !== undefined)
+        spec.maxWidth = Math.min(spec.maxWidth ?? Infinity, v.screen.maxWidth);
+    }
+  }
+  return spec;
+}
+
+/**
  * ALL screen variants whose spec matches the width, in registry order —
  * at 1200 both tablet (>=768) and desktop (>=1080) are active, which is
  * exactly how min-width media queries stack in the cascade.

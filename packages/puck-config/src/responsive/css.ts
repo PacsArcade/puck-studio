@@ -1,12 +1,11 @@
 import {
   comboKey,
+  comboScreenSpec,
   cssClassName,
   emitBlockCss,
   parseComboKey,
   sortCombos,
   type CssLayer,
-  type ScreenSpec,
-  type VariantCombo,
 } from "@pacsarcade/variant-engine";
 import { colorCss, fontCss, type BrandTokens } from "../tokens";
 import {
@@ -115,28 +114,6 @@ export function styleVariantsCss(
     entries.map(([key]) => parseComboKey(key))
   );
 
-  /** intersection of the combo's screen windows (v0.1: single screens) */
-  const comboScreen = (combo: VariantCombo): ScreenSpec | undefined => {
-    let spec: ScreenSpec | undefined;
-    for (const key of combo) {
-      const v = reg.variants.find((x) => x.key === key);
-      if (v?.kind === "screen" && v.screen) {
-        spec = spec ?? {};
-        if (v.screen.minWidth !== undefined)
-          spec.minWidth = Math.max(
-            spec.minWidth ?? -Infinity,
-            v.screen.minWidth
-          );
-        if (v.screen.maxWidth !== undefined)
-          spec.maxWidth = Math.min(
-            spec.maxWidth ?? Infinity,
-            v.screen.maxWidth
-          );
-      }
-    }
-    return spec;
-  };
-
   // Base layer = hardcoded defaults merged with base style decls.
   const boxLayers: CssLayer[] = [
     { decls: boxDecls(align, style, blockDefaults?.box) },
@@ -147,7 +124,8 @@ export function styleVariantsCss(
   for (const combo of orderedCombos) {
     const values = valuesByKey.get(comboKey(reg, combo));
     if (!values) continue;
-    const screen = comboScreen(combo);
+    // intersection of the combo's screen windows — engine-owned since 0.3.0
+    const screen = comboScreenSpec(reg, combo) ?? undefined;
     boxLayers.push({ screen, decls: boxDecls(undefined, values) });
     typoLayers.push({ screen, decls: typoDecls(values, tokens) });
   }

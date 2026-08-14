@@ -1,6 +1,6 @@
 {
   "name": "@pacsarcade/plugin-rails",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The guardrail lint for puck-studio — 13 rules from the Rails Spec, severities read from the brand's tokens per lane (brand/play). A pure engine: same rules in the editor, at publish, and against AI-copilot output.",
   "license": "MIT",
   "repository": "github:PacsArcade/puck-studio",

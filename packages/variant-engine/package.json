@@ -1,7 +1,7 @@
 {
   "name": "@pacsarcade/variant-engine",
-  "version": "0.2.0",
-  "description": "The variants + breakpoints engine for puck-studio — a framework-free registry of variant dimensions (screen today; group/toggle/interaction reserved), combo algebra (ancestry, specificity sort, sparse-merge resolve, definedAt + five-state provenance attribution), and a CSS emitter that writes base-first mobile-first sheets with no !important. Zero dependencies; ships raw TS.",
+  "version": "0.3.0",
+  "description": "The variants + breakpoints engine for puck-studio — a framework-free registry of variant dimensions (screen and toggle live; group/interaction reserved), combo algebra (ancestry, specificity sort, sparse-merge resolve, definedAt + five-state provenance attribution), and a CSS emitter that writes base-first mobile-first sheets with no !important. Zero dependencies; ships raw TS.",
   "license": "MIT",
   "repository": "github:PacsArcade/puck-studio",
   "exports": {

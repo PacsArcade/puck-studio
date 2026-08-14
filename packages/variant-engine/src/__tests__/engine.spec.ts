@@ -1,6 +1,7 @@
 import {
   activeStack,
   comboKey,
+  comboScreenSpec,
   createRegistry,
   definedAt,
   isAncestorCombo,
@@ -313,5 +314,87 @@ describe("provenance (the self-explaining inspector's walk)", () => {
     expect(
       provenance(r, base, settings, ["tablet"], "color", opts).overriddenAbove
     ).toEqual(["desktop"]);
+  });
+});
+
+// ── 0.3.0: comboScreenSpec + the toggle kind goes live ─────────────────────
+
+describe("comboScreenSpec (the combo→ScreenSpec intersection, engine-owned)", () => {
+  const r = reg();
+
+  it("returns null for the base and for screen-less combos", () => {
+    expect(comboScreenSpec(r, [])).toBeNull();
+    const withDawn = createRegistry([
+      ...screenVariantsFromBreakpoints(BP),
+      { key: "dawn", kind: "toggle", group: "theme" },
+    ]);
+    expect(comboScreenSpec(withDawn, ["dawn"])).toBeNull();
+  });
+
+  it("passes a single screen's window through", () => {
+    expect(comboScreenSpec(r, ["tablet"])).toEqual({ minWidth: 768 });
+    expect(comboScreenSpec(r, ["desktop"])).toEqual({ minWidth: 1080 });
+  });
+
+  it("intersects: minWidths max out, maxWidths min out", () => {
+    expect(comboScreenSpec(r, ["tablet", "desktop"])).toEqual({
+      minWidth: 1080,
+    });
+    const banded = createRegistry([
+      { key: "a", kind: "screen", group: "screen", screen: { minWidth: 768 } },
+      { key: "b", kind: "screen", group: "screen", screen: { maxWidth: 1079 } },
+      { key: "c", kind: "screen", group: "screen", screen: { maxWidth: 767 } },
+    ]);
+    expect(comboScreenSpec(banded, ["a", "b"])).toEqual({
+      minWidth: 768,
+      maxWidth: 1079,
+    });
+    expect(comboScreenSpec(banded, ["b", "c"])).toEqual({ maxWidth: 767 });
+  });
+
+  it("toggle members contribute nothing; unknown keys are skipped", () => {
+    const withDawn = createRegistry([
+      ...screenVariantsFromBreakpoints(BP),
+      { key: "dawn", kind: "toggle", group: "theme" },
+    ]);
+    expect(comboScreenSpec(withDawn, ["dawn", "tablet"])).toEqual({
+      minWidth: 768,
+    });
+    expect(comboScreenSpec(withDawn, ["ghost"])).toBeNull();
+  });
+});
+
+describe("toggle variants in a screens registry (the dawn dimension)", () => {
+  const DAWN: VariantDef = { key: "dawn", kind: "toggle", group: "theme" };
+  const regDawn = () =>
+    createRegistry([...screenVariantsFromBreakpoints(BP), DAWN]);
+
+  it("a toggle does not disturb strategy inference", () => {
+    expect(regDawn().strategy).toBe("mobileFirst");
+  });
+
+  it("canonical combo keys follow registry order (screens, then dawn)", () => {
+    expect(comboKey(regDawn(), ["dawn", "tablet"])).toBe("tablet+dawn");
+  });
+
+  it("sortCombos ranks ['dawn'] above ['desktop'] — theme beats screen", () => {
+    expect(sortCombos(regDawn(), [["dawn"], ["desktop"]])).toEqual([
+      ["desktop"],
+      ["dawn"],
+    ]);
+  });
+
+  it("orders the full matrix base < tablet < dawn < dawn+tablet", () => {
+    expect(
+      sortCombos(regDawn(), [["dawn", "tablet"], ["dawn"], [], ["tablet"]])
+    ).toEqual([[], ["tablet"], ["dawn"], ["dawn", "tablet"]]);
+  });
+
+  it("membership makes ['dawn'] an ancestor of ['dawn','tablet']", () => {
+    const r = regDawn();
+    expect(isAncestorCombo(r, ["dawn", "tablet"], ["dawn"])).toBe(true);
+    expect(isAncestorCombo(r, ["tablet"], ["dawn"])).toBe(false);
+    // screen inference still works alongside the toggle
+    expect(isAncestorCombo(r, ["dawn", "desktop"], ["tablet"])).toBe(true);
   });
 });

@@ -8,9 +8,11 @@ import type { ScreenSpec } from "./screen";
  * value was defined), and a CSS emitter. React, Puck, and the brand live
  * in the consumers (puck-config, plugin-rails) — this package is pure data.
  *
- * v0.1 ships the "screen" kind (breakpoints). "group", "toggle", and
- * "interaction" are reserved in the type so stored combo keys stay stable
- * when those dimensions arrive; the specificity ranking already orders them.
+ * v0.1 shipped the "screen" kind (breakpoints); v0.3 makes "toggle" live
+ * (puck-config's dawn theme dimension rides it). "group" and "interaction"
+ * remain reserved in the type so stored combo keys stay stable when those
+ * dimensions arrive; the specificity ranking already orders all four —
+ * toggles/groups outrank screens, so ["dawn"] sorts above ["desktop"].
  *
  * Layer model (Plasmic-inspired, house-built): a block's props are a BASE
  * plus sparse per-combo override layers (VariantedProps). resolve() merges
@@ -423,6 +425,7 @@ export function provenance<T extends object>(
 }
 
 export {
+  comboScreenSpec,
   matchesWidth,
   screenComboForWidth,
   screenVariantsFromBreakpoints,
