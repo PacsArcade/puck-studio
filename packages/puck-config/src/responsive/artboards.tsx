@@ -56,6 +56,16 @@ export function collectHostHeadStyles(doc: Document): HTMLElement[] {
       clone.setAttribute(MIRROR_ATTR, "1");
       clones.push(clone);
     });
+  /* token-vars sheets may render in the BODY (React drops hoistable styles
+     in some hosts) — mirror those too so artboards get --p1..--p5 */
+  doc.body
+    .querySelectorAll<HTMLElement>("style[data-oc-token-vars]")
+    .forEach((el) => {
+      if (el.hasAttribute(MIRROR_ATTR) || !el.innerHTML.trim()) return;
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.setAttribute(MIRROR_ATTR, "1");
+      clones.push(clone);
+    });
   return clones;
 }
 
