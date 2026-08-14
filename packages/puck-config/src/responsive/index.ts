@@ -10,12 +10,14 @@
 export {
   PreviewSizer,
   ResponsiveStyleField,
+  UnifiedStyleField,
   useTargetBreakpoint,
   VIEWPORT_PRESETS,
   ViewportBar,
   type ViewportPreset,
   type ViewportPresetKey,
 } from "./field";
+export { PROP_TO_CSS, styleProvenance } from "./provenance";
 export {
   ArtboardRail,
   artboardScale,

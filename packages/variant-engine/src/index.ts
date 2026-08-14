@@ -321,6 +321,107 @@ export function definedAt<T extends object>(
   };
 }
 
+// ── provenance (Phase 2 step 4: the self-explaining inspector) ─────────────
+
+/**
+ * The five provenance states a prop can be in at a target combo:
+ *  - "set-here"      — the target layer itself defines it (targeting the
+ *                      base: the base holds a REAL value, not the unset
+ *                      sentinel);
+ *  - "override"      — an ancestor OVERRIDE layer defines it (e.g. tablet
+ *                      while targeting desktop);
+ *  - "base"          — it falls through to the base object, which holds a
+ *                      real value;
+ *  - "block-default" — the base holds the unset sentinel AND the block has
+ *                      a hardcoded default for the prop;
+ *  - "brand-default" — the base holds the unset sentinel and the value
+ *                      comes from the brand stylesheet.
+ */
+export type ProvenanceState =
+  | "set-here"
+  | "override"
+  | "base"
+  | "block-default"
+  | "brand-default";
+
+export interface Provenance<T> {
+  state: ProvenanceState;
+  /** the defining layer's combo key, "base", or "default" for the two
+   *  default states */
+  source: ComboKey | "base" | "default";
+  /** the defining value; undefined for the default states (the engine
+   *  does not know what a block or brand default resolves to) */
+  value: T[keyof T] | undefined;
+  /** layers defining `prop` whose combo is NOT an ancestor of the target —
+   *  edits at the target will not reach those screens ("Also overridden
+   *  at: desktop"). Specificity-ordered. */
+  overriddenAbove: ComboKey[];
+}
+
+/**
+ * definedAt's richer sibling (definedAt itself is untouched): walks the
+ * same layer chain, then — on fallthrough to the base — applies the
+ * caller's predicates to split "base" into base / block-default /
+ * brand-default. The engine stays generic: `isUnsetBase` (is this base
+ * value the house's unset sentinel?) and `hasBlockDefault` (does the block
+ * hardcode a default for this prop?) carry the house semantics.
+ */
+export function provenance<T extends object>(
+  reg: VariantRegistry,
+  base: T,
+  settings: VariantedProps<T>,
+  targetCombo: VariantCombo,
+  prop: keyof T,
+  opts?: {
+    isUnsetBase?: (value: T[keyof T] | undefined, prop: keyof T) => boolean;
+    hasBlockDefault?: (prop: keyof T) => boolean;
+  }
+): Provenance<T> {
+  const has = (obj: object, p: PropertyKey): boolean =>
+    Object.prototype.hasOwnProperty.call(obj, p) &&
+    (obj as Record<PropertyKey, unknown>)[p] !== undefined;
+
+  // Layers defining prop whose combo is NOT an ancestor of the target
+  // (the target itself IS its own ancestor, so it is never listed).
+  const above: VariantCombo[] = [];
+  for (const [key, values] of Object.entries(settings)) {
+    if (!values || !has(values, prop)) continue;
+    const combo = parseComboKey(key);
+    if (combo.length === 0) continue;
+    if (!isAncestorCombo(reg, targetCombo, combo)) above.push(combo);
+  }
+  const overriddenAbove = sortCombos(reg, above).map((c) => comboKey(reg, c));
+
+  const d = definedAt(reg, base, settings, targetCombo, prop);
+  if (d.source !== "base") {
+    return {
+      state: d.state === "set" ? "set-here" : "override",
+      source: d.source,
+      value: d.value,
+      overriddenAbove,
+    };
+  }
+
+  // Fallthrough to the base object: a real value is "set-here" when the
+  // base itself is the target, "base" otherwise; the unset sentinel means
+  // the value really comes from a block or brand default.
+  const isUnset = opts?.isUnsetBase?.(d.value, prop) ?? false;
+  if (!isUnset) {
+    return {
+      state: targetCombo.length === 0 ? "set-here" : "base",
+      source: "base",
+      value: d.value,
+      overriddenAbove,
+    };
+  }
+  return {
+    state: opts?.hasBlockDefault?.(prop) ? "block-default" : "brand-default",
+    source: "default",
+    value: undefined,
+    overriddenAbove,
+  };
+}
+
 export {
   matchesWidth,
   screenComboForWidth,

@@ -6,6 +6,7 @@ import {
   isAncestorCombo,
   matchesWidth,
   parseComboKey,
+  provenance,
   resolve,
   screenComboForWidth,
   screenVariantsFromBreakpoints,
@@ -206,5 +207,111 @@ describe("definedAt attribution", () => {
       source: "base",
       value: 17,
     });
+  });
+});
+
+describe("provenance (the self-explaining inspector's walk)", () => {
+  const r = reg();
+  // the house predicates as puck-config supplies them: 0 / "default" is
+  // the base's unset sentinel; only "size" has a hardcoded block default
+  const opts = {
+    isUnsetBase: (v: unknown) => v === 0 || v === "default",
+    hasBlockDefault: (p: keyof Style) => p === "size",
+  };
+  const sentinelBase: Style = { size: 0, color: "default" };
+
+  it("'set-here' when the target layer holds the key", () => {
+    expect(
+      provenance(r, base, { tablet: { size: 20 } }, ["tablet"], "size", opts)
+    ).toEqual({
+      state: "set-here",
+      source: "tablet",
+      value: 20,
+      overriddenAbove: [],
+    });
+  });
+
+  it("'override' from the nearest ancestor override layer", () => {
+    expect(
+      provenance(r, base, { tablet: { size: 20 } }, ["desktop"], "size", opts)
+    ).toEqual({
+      state: "override",
+      source: "tablet",
+      value: 20,
+      overriddenAbove: [],
+    });
+  });
+
+  it("'base' on fallthrough to a REAL base value", () => {
+    expect(
+      provenance(r, base, { tablet: { size: 20 } }, ["desktop"], "color", opts)
+    ).toEqual({
+      state: "base",
+      source: "base",
+      value: "ink",
+      overriddenAbove: [],
+    });
+  });
+
+  it("sentinel base splits into 'block-default' / 'brand-default'", () => {
+    expect(provenance(r, sentinelBase, {}, ["tablet"], "size", opts)).toEqual({
+      state: "block-default",
+      source: "default",
+      value: undefined,
+      overriddenAbove: [],
+    });
+    expect(provenance(r, sentinelBase, {}, ["tablet"], "color", opts)).toEqual({
+      state: "brand-default",
+      source: "default",
+      value: undefined,
+      overriddenAbove: [],
+    });
+  });
+
+  it("without the predicates, fallthrough is plain 'base' (generic engine)", () => {
+    expect(provenance(r, sentinelBase, {}, ["tablet"], "size")).toEqual({
+      state: "base",
+      source: "base",
+      value: 0,
+      overriddenAbove: [],
+    });
+  });
+
+  it("targeting the base: a real value is 'set-here', a sentinel is a default", () => {
+    expect(provenance(r, base, {}, [], "size", opts)).toEqual({
+      state: "set-here",
+      source: "base",
+      value: 17,
+      overriddenAbove: [],
+    });
+    expect(provenance(r, sentinelBase, {}, [], "color", opts)).toEqual({
+      state: "brand-default",
+      source: "default",
+      value: undefined,
+      overriddenAbove: [],
+    });
+  });
+
+  it("overriddenAbove lists non-ancestor layers defining the prop, specificity-ordered", () => {
+    const settings = {
+      tablet: { size: 20 },
+      desktop: { size: 28, color: "accent" },
+    };
+    // targeting base: both screen layers shadow future edits to size
+    expect(
+      provenance(r, base, settings, [], "size", opts).overriddenAbove
+    ).toEqual(["tablet", "desktop"]);
+    // targeting tablet: desktop still shadows size; the target itself never lists
+    const atTablet = provenance(r, base, settings, ["tablet"], "size", opts);
+    expect(atTablet.state).toBe("set-here");
+    expect(atTablet.overriddenAbove).toEqual(["desktop"]);
+    // targeting desktop: tablet is an ancestor — nothing is "above"
+    expect(
+      provenance(r, base, settings, ["desktop"], "size", opts).overriddenAbove
+    ).toEqual([]);
+    // color is only defined at desktop
+    expect(
+      provenance(r, base, settings, ["tablet"], "color", opts).overriddenAbove
+    ).toEqual(["desktop"]);
   });
 });

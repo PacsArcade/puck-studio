@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
 import type { Config, Slot } from "@puckeditor/core";
-import ColorField from "./color-field";
 import { STARTER, colorCss, fontCss, type BrandTokens } from "./tokens";
 import {
   DEFAULT_STYLE,
@@ -10,7 +9,7 @@ import {
   type StyleVariants,
 } from "./responsive/schema";
 import { styleVariantsCss, type BlockStyleDefaults } from "./responsive/css";
-import { ResponsiveStyleField } from "./responsive/field";
+import { UnifiedStyleField } from "./responsive/field";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
@@ -61,73 +60,13 @@ const PANEL_DISALLOW = [
   "ThreeColumns",
 ];
 
-/* The Style Inspector's shared `style` object field, GENERATED from the
-   brand's tokens (Phase 1 step 2): font menu = the brand's font tokens
-   (a brand's no-serif law arrives here as an empty absence), slider bounds =
-   the brand's scales, colour control = the token-driven ColorField. */
-function styleField(tokens: BrandTokens) {
-  const b = tokens.type.bounds;
-  return {
-    type: "object" as const,
-    // With screen overrides below it, this field is explicitly the BASE
-    // (phone-first) layer (Phase 2 step 2, accepted fallback for rail 5).
-    label: "Base style",
-    objectFields: {
-      font: {
-        type: "select" as const,
-        options: [
-          { label: "Default", value: "default" },
-          ...Object.entries(tokens.fonts).map(([value, f]) => ({
-            label: f.label,
-            value,
-          })),
-        ],
-      },
-      size: {
-        type: "number" as const,
-        min: 0,
-        max: b.sizePx[1],
-      },
-      kerning: {
-        type: "number" as const,
-        min: b.kerningPx[0],
-        max: b.kerningPx[1],
-      },
-      lineHeight: {
-        type: "number" as const,
-        min: 0,
-        max: b.lineHeight[1],
-        step: 0.1,
-      },
-      color: {
-        type: "custom" as const,
-        render: ({
-          value,
-          onChange,
-        }: {
-          value: string;
-          onChange: (v: string) => void;
-        }) => (
-          <ColorField
-            value={value ?? "default"}
-            onChange={onChange}
-            tokens={tokens}
-          />
-        ),
-      },
-      spaceAbove: {
-        type: "number" as const,
-        min: 0,
-        max: tokens.spacing.maxPx,
-      },
-      spaceBelow: {
-        type: "number" as const,
-        min: 0,
-        max: tokens.spacing.maxPx,
-      },
-    },
-  };
-}
+/* The Style Inspector field (Phase 2 step 4): ONE custom field hosted on
+   the `style` prop — the UnifiedStyleField. It edits the base (phone)
+   layer through its own onChange and tablet/desktop overrides through a
+   sibling replace dispatch into styleVariants, with a provenance dot per
+   control. The old two-field pair (object field + dead-end message) is
+   gone from the editor; the PAYLOAD is unchanged (`style` dense,
+   `styleVariants` sparse & optional). */
 
 /** typography overrides for the element (size 0 / line-height 0 = inherit).
  *  KEEP IN LOCKSTEP with responsive/css.ts typoDecls (its decl-record twin). */
@@ -164,6 +103,16 @@ const TEXT_DEFAULTS: BlockStyleDefaults = {
   },
 };
 const QUOTE_DEFAULTS: BlockStyleDefaults = { box: { margin: "0" } };
+
+/** ONE registry of every styled block's hardcoded defaults (Phase 2
+ *  step 4): render paths read their decl records from here, and the
+ *  provenance layer reads it to tell "block default" from "brand default".
+ *  A block absent from this record has no hardcoded style-system decls. */
+export const BLOCK_STYLE_DEFAULTS: Record<string, BlockStyleDefaults> = {
+  Text: TEXT_DEFAULTS,
+  RichText: TEXT_DEFAULTS,
+  Quote: QUOTE_DEFAULTS,
+};
 
 const ALIGN_FIELD = {
   type: "select" as const,
@@ -368,22 +317,26 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
   const NEBULA = opts.assets.nebula;
   const METEORS = opts.assets.meteors;
   ACTIVE_TOKENS = opts.tokens ?? DEFAULT_TOKENS;
-  const STYLE_FIELD = styleField(ACTIVE_TOKENS);
   const TOKENS = ACTIVE_TOKENS;
-  /* Screen overrides (Phase 2 step 2). NO defaultProps entry anywhere:
-     a block only carries styleVariants once an operator writes one. */
+  /* The self-explaining inspector (Phase 2 step 4): `style` hosts the
+     UnifiedStyleField (which also WRITES the styleVariants sibling via a
+     replace dispatch), so the styleVariants field itself is registered
+     but INVISIBLE — visible:false is honored by core's isFieldVisible,
+     and the prop keeps flowing through data/render untouched. NO
+     defaultProps entry anywhere: a block only carries styleVariants once
+     an operator writes one. */
+  const styleFieldFor = (blockType: string) => ({
+    type: "custom" as const,
+    label: "Style",
+    render: (p: {
+      value: StyleProps;
+      onChange: (value: StyleProps) => void;
+    }) => <UnifiedStyleField {...p} tokens={TOKENS} blockType={blockType} />,
+  });
   const STYLE_VARIANTS_FIELD = {
     type: "custom" as const,
-    label: "Screen overrides",
-    render: ({
-      value,
-      onChange,
-    }: {
-      value: StyleVariants | undefined;
-      onChange: (value: StyleVariants) => void;
-    }) => (
-      <ResponsiveStyleField value={value} onChange={onChange} tokens={TOKENS} />
-    ),
+    visible: false,
+    render: () => <></>,
   };
   /** shorthand: the block's generated sheet, or null → inline path */
   const sv = (
@@ -412,7 +365,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         fields: {
           text: { type: "text" },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("Eyebrow"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -466,7 +419,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
             ],
           },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("Heading"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -523,7 +476,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
             ],
           },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("StackedHeading"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -589,7 +542,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         fields: {
           text: { type: "textarea" },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("Text"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -604,7 +557,13 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           style,
           styleVariants,
         }: TextProps & { id?: string }) => {
-          const rsp = sv(id, align, style, styleVariants, TEXT_DEFAULTS);
+          const rsp = sv(
+            id,
+            align,
+            style,
+            styleVariants,
+            BLOCK_STYLE_DEFAULTS.Text
+          );
           if (!rsp)
             return (
               <p
@@ -636,7 +595,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         fields: {
           html: { type: "textarea" },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("RichText"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -651,7 +610,13 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           style,
           styleVariants,
         }: RichTextProps & { id?: string }) => {
-          const rsp = sv(id, align, style, styleVariants, TEXT_DEFAULTS);
+          const rsp = sv(
+            id,
+            align,
+            style,
+            styleVariants,
+            BLOCK_STYLE_DEFAULTS.RichText
+          );
           if (!rsp)
             return (
               <p
@@ -682,7 +647,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         fields: {
           text: { type: "textarea" },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("PullQuote"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -733,7 +698,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
             ],
           },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("Button"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -782,7 +747,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           quote: { type: "textarea" },
           who: { type: "text" },
           align: ALIGN_FIELD,
-          style: STYLE_FIELD,
+          style: styleFieldFor("Quote"),
           styleVariants: STYLE_VARIANTS_FIELD,
         },
         defaultProps: {
@@ -799,7 +764,13 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           style,
           styleVariants,
         }: QuoteProps & { id?: string }) => {
-          const rsp = sv(id, align, style, styleVariants, QUOTE_DEFAULTS);
+          const rsp = sv(
+            id,
+            align,
+            style,
+            styleVariants,
+            BLOCK_STYLE_DEFAULTS.Quote
+          );
           if (!rsp)
             return (
               <figure
