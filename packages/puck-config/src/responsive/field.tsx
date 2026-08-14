@@ -76,15 +76,124 @@ export const VIEWPORT_PRESETS: ViewportPreset[] = [
   { key: "desktop", label: "Desktop", width: 1280 },
 ];
 
+/** Text-free device glyphs for compact pills — simple outlines drawn on
+ *  currentColor (rounded rects; the monitor adds its stand + base line).
+ *  aria-hidden: the BUTTON carries the accessible name, never the SVG. */
+const VIEWPORT_GLYPHS: Record<ViewportPresetKey, React.ReactNode> = {
+  phone: (
+    <svg
+      aria-hidden="true"
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    >
+      <rect x="4.75" y="1.75" width="6.5" height="12.5" rx="1.5" />
+      <line x1="7" y1="12" x2="9" y2="12" />
+    </svg>
+  ),
+  tablet: (
+    <svg
+      aria-hidden="true"
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    >
+      <rect x="2.75" y="1.75" width="10.5" height="12.5" rx="1.5" />
+      <line x1="7" y1="12" x2="9" y2="12" />
+    </svg>
+  ),
+  desktop: (
+    <svg
+      aria-hidden="true"
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    >
+      <rect x="1.75" y="2.25" width="12.5" height="8.5" rx="1.5" />
+      <line x1="8" y1="10.75" x2="8" y2="13.25" />
+      <line x1="5.25" y1="13.25" x2="10.75" y2="13.25" />
+    </svg>
+  ),
+};
+
 /** Three pills dispatching Puck's setUi with a FULL viewports object
- *  (setUi shallow-merges top-level UiState keys — mirror core's Canvas). */
-export function ViewportBar() {
+ *  (setUi shallow-merges top-level UiState keys — mirror core's Canvas).
+ *
+ *  `compact` swaps the text labels for inline-SVG device glyphs. The
+ *  LEGIBILITY DOCTRINE for icon-only controls: every pill carries
+ *  redundant cues — aria-label + title name the device AND the width,
+ *  aria-pressed marks the active pill for AT, and the active pill keeps
+ *  a visible NON-COLOR cue (the underline bar) so state reads in
+ *  grayscale. Default (no prop) output is unchanged. */
+export function ViewportBar({ compact }: { compact?: boolean }) {
   const dispatch = usePuck((s) => s.dispatch);
   const current = useViewportWidth();
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
       {VIEWPORT_PRESETS.map((preset) => {
         const active = current === preset.width;
+        if (compact) {
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              aria-label={`${preset.label} ${preset.width}`}
+              title={`${preset.label} · ${preset.width}px`}
+              aria-pressed={active}
+              onClick={() =>
+                dispatch({
+                  type: "setUi",
+                  ui: (prev: UiState): Partial<UiState> => ({
+                    viewports: {
+                      ...prev.viewports,
+                      current: { width: preset.width, height: "auto" },
+                    },
+                  }),
+                })
+              }
+              style={{
+                borderRadius: 999,
+                padding: "4px 8px 3px",
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 1,
+                cursor: active ? "default" : "pointer",
+                border: active
+                  ? "1px solid var(--puck-color-interactive, #8B76C4)"
+                  : "1px solid var(--puck-color-border, rgba(139,118,196,.45))",
+                background: active
+                  ? "var(--puck-color-interactive-soft, rgba(139,118,196,.22))"
+                  : "transparent",
+                color: "var(--puck-color-text, inherit)",
+              }}
+            >
+              {VIEWPORT_GLYPHS[preset.key]}
+              {/* the non-color active cue — reads in grayscale */}
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 12,
+                  height: 2,
+                  borderRadius: 1,
+                  background: active ? "currentColor" : "transparent",
+                }}
+              />
+            </button>
+          );
+        }
         return (
           <button
             key={preset.label}

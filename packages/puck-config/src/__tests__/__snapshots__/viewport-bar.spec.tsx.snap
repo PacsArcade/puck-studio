@@ -1,0 +1,32 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ViewportBar styling default (no compact prop) markup is unchanged — non-breaking minor 1`] = `
+<div
+  style="display: flex; gap: 6px; align-items: center;"
+>
+  <button
+    style="border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: default; border: 1px solid var(--puck-color-interactive, #8B76C4); background: var(--puck-color-interactive-soft, rgba(139,118,196,.22)); color: var(--puck-color-text, inherit); font-weight: 700;"
+    type="button"
+  >
+    Phone
+     
+    390
+  </button>
+  <button
+    style="border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; border: 1px solid var(--puck-color-border, rgba(139,118,196,.45)); background: transparent; color: var(--puck-color-text, inherit); font-weight: 400;"
+    type="button"
+  >
+    Tablet
+     
+    820
+  </button>
+  <button
+    style="border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; border: 1px solid var(--puck-color-border, rgba(139,118,196,.45)); background: transparent; color: var(--puck-color-text, inherit); font-weight: 400;"
+    type="button"
+  >
+    Desktop
+     
+    1280
+  </button>
+</div>
+`;
