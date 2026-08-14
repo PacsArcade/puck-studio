@@ -38,6 +38,14 @@ import { UnifiedStyleField } from "./responsive/field";
 // are byte-identical to what lived here.
 export type { Align, FontKey, StyleProps, StyleVariants };
 
+/* The href picker hosts close over their LinkFieldSources and hand back
+   in via createConfig({ linkField }) — same DI shape as mediaField. */
+export {
+  LinkPickerField,
+  type LinkFieldSources,
+  type LinkPickerFieldProps,
+} from "./link-field";
+
 /* Font and colour resolution reads the brand's TOKENS (Phase 1 step 1).
    Values come entirely from the brand cartridge the host passes in --
    zero behavior change -- but the registry is brand-ready: pass another
@@ -264,6 +272,14 @@ export interface PuckConfigOptions {
     value: string;
     onChange: (v: string) => void;
   }) => ReactElement;
+  /** host-provided link picker (typically LinkPickerField closed over the
+   *  host's LinkFieldSources) for href fields — Button, GoldButton and the
+   *  Buttons row items; falls back to a plain text field when absent.
+   *  PAYLOAD UNCHANGED: href stays a plain string. */
+  linkField?: (props: {
+    value: string;
+    onChange: (v: string) => void;
+  }) => ReactElement;
 }
 
 /** The library rail's logical order (Puck renders these as collapsible
@@ -356,6 +372,11 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
     );
   const SRC_FIELD = opts.mediaField
     ? ({ type: "custom" as const, render: opts.mediaField } as const)
+    : ({ type: "text" as const } as const);
+  /* the mediaField DI pattern, verbatim, for hrefs — custom fields work
+     inside arrayFields too (SRC_FIELD proves it in Gallery.images). */
+  const LINK_FIELD = opts.linkField
+    ? ({ type: "custom" as const, render: opts.linkField } as const)
     : ({ type: "text" as const } as const);
   return {
     categories: CATEGORIES as unknown as OcPuckConfig["categories"],
@@ -687,7 +708,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
         label: "Button",
         fields: {
           label: { type: "text" },
-          href: { type: "text" },
+          href: LINK_FIELD,
           variant: {
             type: "select",
             options: [
@@ -809,7 +830,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
 
       GoldButton: {
         label: "Gold button (legacy)",
-        fields: { label: { type: "text" }, href: { type: "text" } },
+        fields: { label: { type: "text" }, href: LINK_FIELD },
         defaultProps: { label: "Learn more", href: "#" },
         render: ({ label, href }: GoldButtonProps) => (
           <a href={href} className="btn btn-gold">
@@ -1205,7 +1226,7 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
             type: "array",
             arrayFields: {
               label: { type: "text" },
-              href: { type: "text" },
+              href: LINK_FIELD,
               variant: {
                 type: "select",
                 options: [

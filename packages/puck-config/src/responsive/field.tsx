@@ -105,12 +105,16 @@ export function ViewportBar() {
               padding: "4px 12px",
               fontSize: 12,
               cursor: active ? "default" : "pointer",
+              /* 0.23 SEMANTIC tokens (the 0.20 --puck-color-azure-* scale
+                 vars died in hosts → unresolved var + white fallback blob);
+                 house-hex fallbacks for tokenless hosts. */
               border: active
-                ? "1px solid var(--puck-color-azure-05, #3479ac)"
-                : "1px solid var(--puck-color-grey-09, #c9c9c9)",
+                ? "1px solid var(--puck-color-interactive, #8B76C4)"
+                : "1px solid var(--puck-color-border, rgba(139,118,196,.45))",
               background: active
-                ? "var(--puck-color-azure-11, #e9f4fc)"
+                ? "var(--puck-color-interactive-soft, rgba(139,118,196,.22))"
                 : "transparent",
+              color: "var(--puck-color-text, inherit)",
               fontWeight: active ? 700 : 400,
             }}
           >
@@ -124,7 +128,14 @@ export function ViewportBar() {
 
 // ── PreviewSizer ───────────────────────────────────────────────────────────
 
-/** Centered width-constrained container tracking the current viewport. */
+/**
+ * Centered width-constrained container tracking the current viewport.
+ *
+ * @deprecated STUDIO RESPONSIVE batch (0.11.0) — superseded by the zoom
+ * module's CanvasZoomer (responsive/zoom.tsx), which adds the scaled mat,
+ * fit/manual zoom and gestures on top of the same width constraint. Kept
+ * exported for iframe-less hosts that still mount it.
+ */
 export function PreviewSizer({ children }: { children: React.ReactNode }) {
   const width = useViewportWidth();
   const px = typeof width === "number" ? `${width}px` : "100%";

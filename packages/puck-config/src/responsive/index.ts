@@ -28,6 +28,25 @@ export {
   type CompanionFrameProps,
 } from "./artboards";
 export {
+  CanvasZoomer,
+  clampZoom,
+  compensatedHeight,
+  fitZoomFor,
+  FRAME_SCROLLBAR_CSS,
+  FRAME_SCROLLBAR_STYLE_ATTR,
+  FrameScrollbarStyles,
+  injectFrameScrollbarStyles,
+  pinchZoom,
+  stepZoom,
+  useCanvasZoom,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_WHEEL_STEP,
+  ZoomControls,
+  type CanvasZoomApi,
+  type CanvasZoomerProps,
+} from "./zoom";
+export {
   boxDecls,
   styleVariantsCss,
   typoDecls,
