@@ -195,6 +195,12 @@ type BandProps = {
     | "meteors"
     | "plain";
   hold: "night" | "theme";
+  /** 0.13.0 ADDITIVE — arbitrary background image URL. When set it wins
+   *  over `background` (veil overlay kept). Absent → pre-0.13 path. */
+  bgSrc?: string;
+  /** 0.13.0 ADDITIVE — plain CSS color ground (hex or css color). Applies
+   *  only when bgSrc is absent; replaces the hold's ground. */
+  bgColor?: string;
   content: Slot;
 };
 type SpacerProps = { height: number };
@@ -1082,10 +1088,29 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
               { label: "Follow theme", value: "theme" },
             ],
           },
+          /* 0.13.0 additive custom grounds. bgSrc rides the same media DI
+             as Image.src (SRC_FIELD) so the host's library picker works
+             here too — adapted because the prop is OPTIONAL (string |
+             undefined) while the DI contract is a plain string. */
+          bgSrc: opts.mediaField
+            ? {
+                type: "custom",
+                label: "Background image (custom URL)",
+                render: (p: {
+                  value: string | undefined;
+                  onChange: (v: string | undefined) => void;
+                }) =>
+                  opts.mediaField!({
+                    value: p.value ?? "",
+                    onChange: p.onChange,
+                  }),
+              }
+            : { type: "text", label: "Background image (custom URL)" },
+          bgColor: { type: "text", label: "Background color (hex/css)" },
           content: { type: "slot", disallow: NO_FULL_WIDTH },
         },
         defaultProps: { background: "sky-glass", hold: "theme", content: [] },
-        render: ({ background, hold, content: Content }) => {
+        render: ({ background, hold, bgSrc, bgColor, content: Content }) => {
           const photo =
             background === "nebula"
               ? NEBULA
@@ -1095,13 +1120,32 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           const veil =
             "linear-gradient(180deg, rgba(14,10,28,.68), rgba(14,10,28,.78))";
           const style: React.CSSProperties = { padding: "60px 0" };
-          if (photo) {
+          /* 0.13.0 custom grounds — ADDITIVE. Both absent → the pre-0.13
+             path below runs byte-identically (untouched-path law).
+             KNOWN LIMITATION: plugin-rails ground-tracking doesn't know
+             custom grounds — a band with bgSrc/bgColor keeps being
+             lint-tracked as its `hold` ground. Documented, accepted. */
+          const customGround = Boolean(bgSrc || bgColor);
+          if (bgSrc) {
+            // same veil overlay + cover/center as the cartridge photos
+            style.backgroundImage = `${veil}, url(${bgSrc})`;
+            style.backgroundSize = "cover";
+            style.backgroundPosition = "center";
+          } else if (bgColor) {
+            style.backgroundColor = bgColor;
+          } else if (photo) {
             style.backgroundImage = `${veil}, url(${photo})`;
             style.backgroundSize = "cover";
             style.backgroundPosition = "center";
           }
           const cls = [
-            photo ? "" : background === "plain" ? "" : background,
+            customGround
+              ? "" // the custom ground replaces the hold's ground class
+              : photo
+              ? ""
+              : background === "plain"
+              ? ""
+              : background,
             hold === "night" ? "keep-dark" : "",
           ]
             .filter(Boolean)

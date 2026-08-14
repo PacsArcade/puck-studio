@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Band untouched path (no bgSrc/bgColor) renders byte-identical whether the keys are absent or undefined 1`] = `"<div><section class="sky-veil keep-dark" style="padding:60px 0"><div class="wrap" style="max-width:680px;margin:0 auto"><div></div></div></section></div>"`;
