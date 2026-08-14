@@ -53,10 +53,21 @@ export function useTargetBreakpoint(tokens: BrandTokens): BreakpointKey | null {
 
 // ── ViewportBar ────────────────────────────────────────────────────────────
 
-const VIEWPORT_PRESETS: { label: string; width: number }[] = [
-  { label: "Phone", width: 390 },
-  { label: "Tablet", width: 820 },
-  { label: "Desktop", width: 1280 },
+/** "phone" is the base (no breakpoint); tablet/desktop map to BreakpointKey. */
+export type ViewportPresetKey = "phone" | BreakpointKey;
+
+export type ViewportPreset = {
+  key: ViewportPresetKey;
+  label: string;
+  width: number;
+};
+
+/** THE one definition of the three studio viewports — ViewportBar pills and
+ *  the artboard rail both read this list; never redeclare it. */
+export const VIEWPORT_PRESETS: ViewportPreset[] = [
+  { key: "phone", label: "Phone", width: 390 },
+  { key: "tablet", label: "Tablet", width: 820 },
+  { key: "desktop", label: "Desktop", width: 1280 },
 ];
 
 /** Three pills dispatching Puck's setUi with a FULL viewports object
