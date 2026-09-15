@@ -7,7 +7,7 @@
     "types": ["node", "jest"],
     "paths": {
       "@puckeditor/core": ["../core/bundle/core.ts"],
-      "@pacsarcade/variant-engine": ["../variant-engine/src/index.ts"]
+      "@frens-earth/variant-engine": ["../variant-engine/src/index.ts"]
     }
   }
 }

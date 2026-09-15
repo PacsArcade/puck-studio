@@ -2,7 +2,7 @@ import type { PresenceMessage, TransportStatus } from "./types";
 
 /**
  * The seam between the presence client and the wire. Implementations:
- * `createNostrTransport` (@pacsarcade/presence/nostr) for production,
+ * `createNostrTransport` (@frens-earth/presence/nostr) for production,
  * `createMemoryTransport` for tests and single-process demos.
  */
 export interface PresenceTransport {

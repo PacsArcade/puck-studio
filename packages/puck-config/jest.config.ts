@@ -21,7 +21,7 @@ const config: Config = {
     // Resolve sibling workspace packages from source — CI runs tests
     // before any build, so nothing has a dist yet.
     "^@puckeditor/core$": "<rootDir>/../core/bundle/core.ts",
-    "^@pacsarcade/variant-engine$": "<rootDir>/../variant-engine/src/index.ts",
+    "^@frens-earth/variant-engine$": "<rootDir>/../variant-engine/src/index.ts",
     // stub out style & asset imports
     "\\.(css|less|sass|scss)$": "identity-obj-proxy",
   },

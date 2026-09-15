@@ -1,8 +1,8 @@
 /**
- * @pacsarcade/puck-changelog — framework-free surface.
+ * @frens-earth/puck-changelog — framework-free surface.
  *
  * React pieces (ChangelogBridge, useApplyData) live in
- * `@pacsarcade/puck-changelog/react`.
+ * `@frens-earth/puck-changelog/react`.
  */
 
 export type {

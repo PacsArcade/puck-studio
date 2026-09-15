@@ -9,8 +9,8 @@
     "target": "es2019",
     "types": ["node", "jest"],
     "paths": {
-      "@pacsarcade/puck-config/tokens": ["../puck-config/src/tokens/index.ts"],
-      "@pacsarcade/variant-engine": ["../variant-engine/src/index.ts"]
+      "@frens-earth/puck-config/tokens": ["../puck-config/src/tokens/index.ts"],
+      "@frens-earth/variant-engine": ["../variant-engine/src/index.ts"]
     }
   }
 }

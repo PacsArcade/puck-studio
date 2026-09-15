@@ -1,4 +1,4 @@
-import { STARTER } from "@pacsarcade/puck-config/tokens";
+import { STARTER } from "@frens-earth/puck-config/tokens";
 import { lintPage, type LintContext, type LintData } from "../index";
 
 /**

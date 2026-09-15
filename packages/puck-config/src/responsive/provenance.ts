@@ -2,7 +2,7 @@ import {
   provenance,
   type Provenance,
   type VariantCombo,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 import type { BrandTokens } from "../tokens";
 import { BLOCK_STYLE_DEFAULTS } from "../index";
 import { registryFor, type StyleProps, type StyleVariants } from "./schema";

@@ -3,7 +3,7 @@ import {
   screenVariantsFromBreakpoints,
   type ComboKey,
   type VariantRegistry,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 import type { BrandTokens } from "../tokens";
 
 /**
