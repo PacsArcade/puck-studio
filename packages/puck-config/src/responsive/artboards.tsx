@@ -235,7 +235,7 @@ export function CompanionFrame({
 
 // ── ArtboardRail ───────────────────────────────────────────────────────────
 
-/** Structural slice of @pacsarcade/puck-changelog's Changelog — origin is
+/** Structural slice of @frens-earth/puck-changelog's Changelog — origin is
  *  all the rail reads. ChangeRecord.blockIds deliberately unused in v0.1 —
  *  no consumer yet. */
 export type ArtboardLog = {

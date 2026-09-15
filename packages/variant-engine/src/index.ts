@@ -1,7 +1,7 @@
 import type { ScreenSpec } from "./screen";
 
 /**
- * @pacsarcade/variant-engine — variants + breakpoints (Phase 2 step 2).
+ * @frens-earth/variant-engine — variants + breakpoints (Phase 2 step 2).
  *
  * Framework-free and zero-dependency: a registry of VARIANT DIMENSIONS, a
  * small combo algebra (which layers apply where, in what order, and where a

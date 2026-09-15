@@ -1,6 +1,6 @@
 {
-  "name": "@pacsarcade/presence",
-  "version": "0.1.0",
+  "name": "@frens-earth/presence",
+  "version": "0.2.0",
   "description": "Ephemeral multiplayer presence for puck-studio — a transport-agnostic presence client (heartbeat, debounced state, TTL peer table, bye) with a nip44-encrypted nostr transport (kind 25050 rooms over SimplePool) and React bindings that ride Puck's own store: a bridge that publishes selection + breakpoint, peer chips, and CSS-injection-hardened selection halos.",
   "license": "MIT",
   "repository": "github:PacsArcade/puck-studio",

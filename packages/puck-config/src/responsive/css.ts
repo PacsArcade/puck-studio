@@ -6,7 +6,7 @@ import {
   parseComboKey,
   sortCombos,
   type CssLayer,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 import { colorCss, fontCss, type BrandTokens } from "../tokens";
 import {
   registryFor,

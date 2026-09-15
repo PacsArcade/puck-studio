@@ -2,8 +2,8 @@ import type {
   BrandTokens,
   RuleId,
   Severity,
-} from "@pacsarcade/puck-config/tokens";
-import { gradeOn } from "@pacsarcade/puck-config/tokens";
+} from "@frens-earth/puck-config/tokens";
+import { gradeOn } from "@frens-earth/puck-config/tokens";
 import {
   createRegistry,
   resolve,
@@ -11,7 +11,7 @@ import {
   screenVariantsFromBreakpoints,
   type VariantRegistry,
   type VariantedProps,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 
 /**
  * plugin-rails -- the guardrail lint (Phase 1 step 4 of the Rails Spec).

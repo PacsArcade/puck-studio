@@ -48,7 +48,7 @@ Publish copies draft → live. Public routes never read drafts.
 - **Screen overrides (0.7.0)** — styled blocks may additionally carry an
   OPTIONAL `styleVariants` prop: sparse partial style objects keyed by
   combo key (`"tablet"`, `"desktop"`, from the brand's breakpoints via
-  `@pacsarcade/variant-engine`). Absent or empty = the block renders on
+  `@frens-earth/variant-engine`). Absent or empty = the block renders on
   the pre-0.7 inline path unchanged. Clearing an override DELETES the
   key — `0` is a real value there (it wins), never "unset".
 - **Legacy blocks** — `GoldButton` predates the `Button` variant block and

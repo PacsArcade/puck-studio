@@ -12,7 +12,7 @@ import {
   type VariantDef,
   type VariantRegistry,
   type VariantedProps,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 import type { BrandTokens, PaletteKey, TokenComboKey } from "./index";
 
 /**

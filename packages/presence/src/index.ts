@@ -1,9 +1,9 @@
 /**
- * @pacsarcade/presence — framework-free surface.
+ * @frens-earth/presence — framework-free surface.
  *
  * React pieces (usePresence, PresenceBridge, PresenceChips, PresenceHalos)
- * live in `@pacsarcade/presence/react`; the nostr transport lives in
- * `@pacsarcade/presence/nostr` (requires the optional nostr-tools peer).
+ * live in `@frens-earth/presence/react`; the nostr transport lives in
+ * `@frens-earth/presence/nostr` (requires the optional nostr-tools peer).
  */
 
 export type {

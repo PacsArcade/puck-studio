@@ -11,7 +11,7 @@ import {
   type Provenance,
   type ProvenanceState,
   type VariantCombo,
-} from "@pacsarcade/variant-engine";
+} from "@frens-earth/variant-engine";
 import ColorField from "../color-field";
 import { colorCss, type BrandTokens } from "../tokens";
 import { styleProvenance } from "./provenance";

@@ -1,5 +1,5 @@
 /**
- * @pacsarcade/puck-config/responsive — the responsive surface.
+ * @frens-earth/puck-config/responsive — the responsive surface.
  *
  * Hosts import ViewportBar (editor chrome), ArtboardRail (the live
  * companion-breakpoint matrix), and PreviewSizer (canvas container) from

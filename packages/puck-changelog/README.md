@@ -1,4 +1,4 @@
-# @pacsarcade/puck-changelog
+# @frens-earth/puck-changelog
 
 The change-log substrate for puck-studio (Plasmic gap-map §0): a
 reference-pruned patch stream captured from Puck's `onAction`, with inverse
@@ -10,11 +10,11 @@ incremental CSS, the save queue, multiplayer rebase.
 ## Use
 
 ```tsx
-import { createChangelog } from "@pacsarcade/puck-changelog";
+import { createChangelog } from "@frens-earth/puck-changelog";
 import {
   ChangelogBridge,
   useApplyData,
-} from "@pacsarcade/puck-changelog/react";
+} from "@frens-earth/puck-changelog/react";
 
 const log = createChangelog(initialData);
 
