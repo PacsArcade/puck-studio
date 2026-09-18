@@ -84,6 +84,7 @@ function typo(s?: StyleProps): React.CSSProperties {
   if (s.font && s.font !== "default")
     c.fontFamily = fontCss(ACTIVE_TOKENS, s.font);
   if (s.size) c.fontSize = `${s.size}px`;
+  if (s.weight) c.fontWeight = s.weight;
   if (s.kerning) c.letterSpacing = `${s.kerning}px`;
   if (s.lineHeight) c.lineHeight = s.lineHeight;
   if (s.color && s.color !== "default")
