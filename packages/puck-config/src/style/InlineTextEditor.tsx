@@ -409,7 +409,7 @@ function EditableInlineText({
   useEffect(() => {
     if (editingSession || !ref.current) return;
     const safe = value ?? "";
-    if (ref.current.innerText !== safe) ref.current.replaceChildren(safe);
+    if (ref.current.textContent !== safe) ref.current.replaceChildren(safe);
   }, [value, editingSession]);
 
   // on entering a session: snapshot the start value, focus, caret to end.
@@ -440,7 +440,7 @@ function EditableInlineText({
   const cancelEdit = (): void => {
     cancelingRef.current = true;
     draftRef.current = startRef.current;
-    if (ref.current) ref.current.innerText = startRef.current ?? "";
+    if (ref.current) ref.current.textContent = startRef.current ?? "";
     ref.current?.blur();
   };
 
@@ -473,7 +473,7 @@ function EditableInlineText({
         onInput={
           editingSession
             ? (e: React.FormEvent<HTMLElement>) => {
-                let v = (e.target as HTMLElement).innerText;
+                let v = (e.target as HTMLElement).textContent ?? "";
                 if (disableLineBreaks) v = v.replace(/\n/g, "");
                 draftRef.current = v;
               }
