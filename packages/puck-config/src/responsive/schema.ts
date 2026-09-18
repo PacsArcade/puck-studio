@@ -26,6 +26,14 @@ export type StyleProps = {
   color: string;
   spaceAbove: number;
   spaceBelow: number;
+  /**
+   * font-weight (T-341, H130 ruling 0018.06.27): the ONE named new key —
+   * a bounded stepped set (400/500/600/700), never a free number. OPTIONAL
+   * and absent from DEFAULT_STYLE on purpose: absent = inherit, no decl
+   * emitted (typo()/typoDecls's `if (s.weight)` twin) — unlike the other
+   * StyleProps numbers, 0 is not this prop's "unset" value, undefined is.
+   */
+  weight?: number;
 };
 
 export const DEFAULT_STYLE: StyleProps = {
@@ -36,6 +44,7 @@ export const DEFAULT_STYLE: StyleProps = {
   color: "default",
   spaceAbove: 0,
   spaceBelow: 0,
+  // weight intentionally absent — see the StyleProps doc comment above.
 };
 
 export type BreakpointKey = "tablet" | "desktop";

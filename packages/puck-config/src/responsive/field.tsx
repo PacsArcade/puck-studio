@@ -629,7 +629,8 @@ const valueText = (
     const key = String(v);
     return key === "default" ? "Default" : tokens.fonts[key]?.label ?? key;
   }
-  if (prop === "color" || prop === "lineHeight") return String(v);
+  if (prop === "color" || prop === "lineHeight" || prop === "weight")
+    return String(v);
   return `${v}px`;
 };
 
@@ -867,6 +868,172 @@ function ProvenanceDot({
     </span>
   );
 }
+
+// ── StyleSection (T-341: collapsible groups over UnifiedStyleField's rows) ─
+
+/**
+ * localStorage namespace for section collapse state. Package-neutral on
+ * purpose (Ground, TASK-341): OC's own `PuckEditor.tsx` uses an
+ * "oc-studio*" prefix for ITS panel-open state, but this package ships
+ * brand-neutral to every ship in the fleet, so it needs its own key that
+ * doesn't collide with (or imply ownership by) any one host.
+ */
+const SECTION_LS_NAMESPACE = "puck-config:style-section";
+
+/** keyed per section per block type, so collapsing Typography on Heading
+ *  doesn't collapse it on Button. */
+const sectionStorageKey = (section: string, blockType: string): string =>
+  `${SECTION_LS_NAMESPACE}:${section}:${blockType}`;
+
+/** section defaults OPEN — on first visit, when localStorage has no entry,
+ *  and whenever storage throws (private mode / blocked storage). Every
+ *  access is try/catch-guarded: a broken localStorage must never break the
+ *  inspector. */
+function readSectionOpen(section: string, blockType: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = window.localStorage.getItem(
+      sectionStorageKey(section, blockType)
+    );
+    return raw !== "0"; // absent (null) or anything but "0" = open
+  } catch {
+    return true;
+  }
+}
+
+function writeSectionOpen(
+  section: string,
+  blockType: string,
+  open: boolean
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      sectionStorageKey(section, blockType),
+      open ? "1" : "0"
+    );
+  } catch {
+    // private mode / blocked storage — the section just won't remember
+  }
+}
+
+const SECTION_WRAP: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+const SECTION_HEADER: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  cursor: "pointer",
+  userSelect: "none",
+  fontSize: 10,
+  letterSpacing: ".12em",
+  textTransform: "uppercase",
+  color: "var(--puck-color-grey-05, #9a8fae)",
+};
+const SECTION_BODY: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+/**
+ * A labelled, collapsible group of rows (T-341 L6/L7). Presentational
+ * only — it wraps existing rows, it doesn't touch how they read or write;
+ * every row inside keeps calling the same setProp/writeVariants/dot
+ * mechanism it always has.
+ *
+ * NOTE: the header is a `<div role="button">`, deliberately NOT a
+ * `<button>` — `unified-field.spec.tsx`'s `dots()` helper selects
+ * `button[aria-expanded]` to walk the per-row provenance dots in row
+ * order; a `<button aria-expanded>` header would land in that same query
+ * and shift every dot index. `role="button"` keeps it keyboard- and
+ * screen-reader-accessible without colliding with that selector.
+ */
+function StyleSection({
+  title,
+  sectionKey,
+  blockType,
+  children,
+}: {
+  title: string;
+  sectionKey: string;
+  blockType: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(() =>
+    readSectionOpen(sectionKey, blockType)
+  );
+
+  // Re-sync when the selection changes to a different block/section
+  // identity (a re-select can reuse the same mounted field instance).
+  useEffect(() => {
+    setOpen(readSectionOpen(sectionKey, blockType));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionKey, blockType]);
+
+  const toggle = (): void => {
+    setOpen((prev) => {
+      const next = !prev;
+      writeSectionOpen(sectionKey, blockType, next);
+      return next;
+    });
+  };
+
+  return (
+    <div style={SECTION_WRAP}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        style={SECTION_HEADER}
+      >
+        <span aria-hidden style={{ display: "inline-block", width: 8 }}>
+          {open ? "▾" : "▸"}
+        </span>
+        <span>{title}</span>
+      </div>
+      {open && <div style={SECTION_BODY}>{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * The bounded, stepped set for font-weight (H130 ruling 0018.06.27): a
+ * chooser, never a free number — 400/500/600/700 only.
+ */
+const WEIGHT_OPTIONS = [400, 500, 600, 700] as const;
+
+/**
+ * Every control the Typography and Spacing sections render, typed as
+ * `(keyof StyleProps)[]` so a control referencing a prop that doesn't
+ * exist on StyleProps fails to COMPILE — the literal enforcement of "no
+ * new storage keys unless named" (TASK-341 Tests (a)). The jest schema
+ * test in style-sections.spec.tsx additionally asserts this pair is
+ * EXHAUSTIVE over StyleProps, so a future lane that adds a schema key
+ * without adding it to a section (or vice versa) fails at test time too.
+ */
+export const TYPOGRAPHY_SECTION_PROPS: (keyof StyleProps)[] = [
+  "font",
+  "size",
+  "kerning",
+  "lineHeight",
+  "color",
+  "weight",
+];
+export const SPACING_SECTION_PROPS: (keyof StyleProps)[] = [
+  "spaceAbove",
+  "spaceBelow",
+];
 
 /**
  * THE style field (Phase 2 step 4) — hosted on the `style` prop of every
@@ -1121,6 +1288,34 @@ export function UnifiedStyleField({
     </div>
   );
 
+  /** Weight row: a bounded stepped chooser (400/500/600/700), never a free
+   *  number (H130 ruling). "Default" reuses the SAME clearProp path every
+   *  other row's dot popover offers — weight has no numeric "unset"
+   *  sentinel of its own (undefined IS unset, see schema.ts), so there is
+   *  no empty-box state to handle here the way BoundedNumberInput does. */
+  const weightRow = (): React.ReactNode => (
+    <div style={ROW}>
+      <span style={LABEL}>Weight</span>
+      <select
+        value={effective.weight === undefined ? "default" : String(effective.weight)}
+        onChange={(e) => {
+          const raw = e.currentTarget.value;
+          if (raw === "default") clearProp("weight");
+          else setProp("weight", Number(raw));
+        }}
+        style={{ flexGrow: 1 }}
+      >
+        <option value="default">Default</option>
+        {WEIGHT_OPTIONS.map((w) => (
+          <option key={w} value={w}>
+            {w}
+          </option>
+        ))}
+      </select>
+      {dot("weight")}
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div
@@ -1134,48 +1329,58 @@ export function UnifiedStyleField({
         {target ? `editing ${target} overrides` : "editing base (phone)"}
       </div>
 
-      <div style={ROW}>
-        <span style={LABEL}>Font</span>
-        <select
-          value={effective.font}
-          onChange={(e) =>
-            setProp("font", e.currentTarget.value as StyleProps["font"])
-          }
-          style={{ flexGrow: 1 }}
-        >
-          <option value="default">Default</option>
-          {Object.entries(tokens.fonts).map(([key, f]) => (
-            <option key={key} value={key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-        {dot("font")}
-      </div>
-
-      {numberRow("Size", "size", 0, bounds.sizePx[1])}
-      {numberRow(
-        "Kerning",
-        "kerning",
-        bounds.kerningPx[0],
-        bounds.kerningPx[1]
-      )}
-      {numberRow("Line height", "lineHeight", 0, bounds.lineHeight[1], 0.1)}
-
-      <div style={{ ...ROW, alignItems: "flex-start" }}>
-        <span style={{ ...LABEL, paddingTop: 4 }}>Colour</span>
-        <div style={{ flexGrow: 1 }}>
-          <ColorField
-            value={effective.color}
-            onChange={(v) => setProp("color", v)}
-            tokens={tokens}
-          />
+      <StyleSection
+        title="Typography"
+        sectionKey="typography"
+        blockType={blockType}
+      >
+        <div style={ROW}>
+          <span style={LABEL}>Font</span>
+          <select
+            value={effective.font}
+            onChange={(e) =>
+              setProp("font", e.currentTarget.value as StyleProps["font"])
+            }
+            style={{ flexGrow: 1 }}
+          >
+            <option value="default">Default</option>
+            {Object.entries(tokens.fonts).map(([key, f]) => (
+              <option key={key} value={key}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          {dot("font")}
         </div>
-        {dot("color")}
-      </div>
 
-      {numberRow("Space above", "spaceAbove", 0, tokens.spacing.maxPx)}
-      {numberRow("Space below", "spaceBelow", 0, tokens.spacing.maxPx)}
+        {numberRow("Size", "size", 0, bounds.sizePx[1])}
+        {numberRow(
+          "Kerning",
+          "kerning",
+          bounds.kerningPx[0],
+          bounds.kerningPx[1]
+        )}
+        {numberRow("Line height", "lineHeight", 0, bounds.lineHeight[1], 0.1)}
+
+        <div style={{ ...ROW, alignItems: "flex-start" }}>
+          <span style={{ ...LABEL, paddingTop: 4 }}>Colour</span>
+          <div style={{ flexGrow: 1 }}>
+            <ColorField
+              value={effective.color}
+              onChange={(v) => setProp("color", v)}
+              tokens={tokens}
+            />
+          </div>
+          {dot("color")}
+        </div>
+
+        {weightRow()}
+      </StyleSection>
+
+      <StyleSection title="Spacing" sectionKey="spacing" blockType={blockType}>
+        {numberRow("Space above", "spaceAbove", 0, tokens.spacing.maxPx)}
+        {numberRow("Space below", "spaceBelow", 0, tokens.spacing.maxPx)}
+      </StyleSection>
     </div>
   );
 }
