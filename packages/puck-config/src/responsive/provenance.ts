@@ -27,6 +27,7 @@ import { registryFor, type StyleProps, type StyleVariants } from "./schema";
 export const PROP_TO_CSS: Record<keyof StyleProps, string> = {
   font: "font-family",
   size: "font-size",
+  weight: "font-weight",
   kerning: "letter-spacing",
   lineHeight: "line-height",
   color: "color",
@@ -57,7 +58,11 @@ export function styleProvenance(
 ): Provenance<StyleProps> {
   const reg = registryFor(tokens);
   return provenance(reg, base, settings, target, prop, {
-    isUnsetBase: (v) => v === 0 || v === "default",
+    // weight is the one StyleProps key whose "unset" is undefined, not
+    // 0/"default" (it's optional and absent from DEFAULT_STYLE on
+    // purpose — see schema.ts's doc comment); every other prop's base
+    // value is never undefined, so this addition is a no-op for them.
+    isUnsetBase: (v) => v === 0 || v === "default" || v === undefined,
     hasBlockDefault: (p) => {
       const defaults = BLOCK_STYLE_DEFAULTS[blockType];
       if (!defaults) return false;

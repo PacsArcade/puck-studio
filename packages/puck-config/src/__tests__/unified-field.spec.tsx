@@ -97,7 +97,8 @@ const sizeInput = (container: HTMLElement): HTMLInputElement =>
 const kerningInput = (container: HTMLElement): HTMLInputElement =>
   container.querySelectorAll<HTMLInputElement>('input[type="number"]')[1];
 
-/** dots in row order: font, size, kerning, lineHeight, color, above, below */
+/** dots in row order (T-341: Typography then Spacing sections):
+ *  font, size, kerning, lineHeight, color, weight, above, below */
 const dots = (container: HTMLElement): HTMLButtonElement[] =>
   Array.from(
     container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")
@@ -404,7 +405,11 @@ describe("provenance dots", () => {
     expect(d[2]).toHaveAttribute("aria-label", "from tablet"); // kerning
     expect(d[4]).toHaveAttribute("aria-label", "from base"); // color
     expect(d[3]).toHaveAttribute("aria-label", "block default"); // lineHeight (Text hardcodes it)
-    expect(d[5]).toHaveAttribute("aria-label", "brand default"); // spaceAbove
+    // weight (T-341): never set anywhere in this fixture, no block default
+    // for it on Text — falls through to brand default, same as spaceAbove
+    // used to at this index before the Typography/Spacing regrouping.
+    expect(d[5]).toHaveAttribute("aria-label", "brand default"); // weight
+    expect(d[6]).toHaveAttribute("aria-label", "brand default"); // spaceAbove
   });
 });
 

@@ -50,6 +50,7 @@ export function typoDecls(
     if (f) d["font-family"] = f;
   }
   if (style.size) d["font-size"] = `${style.size}px`;
+  if (style.weight) d["font-weight"] = String(style.weight);
   if (style.kerning) d["letter-spacing"] = `${style.kerning}px`;
   if (style.lineHeight) d["line-height"] = String(style.lineHeight);
   if (style.color && style.color !== "default") {
