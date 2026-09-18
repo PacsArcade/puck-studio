@@ -348,18 +348,46 @@ export type InlineTextEditorProps = {
   wrapperDisplay?: "inline-block" | "block";
 };
 
-export function InlineTextEditor({
+/**
+ * Public entry point. NO Puck-context hook may be called here: `<Render>`
+ * (the published path, `isEditing: false` — packages/core/components/
+ * Render/index.tsx:55) mounts these SAME block components OUTSIDE any
+ * <Puck> provider, and useGetPuck/usePuck throw synchronously
+ * ("must be used inside <Puck>") when no provider is present. So this
+ * component renders the static Tag+value with ZERO hooks whenever editing
+ * isn't possible, and only MOUNTS the interactive EditableInlineText (a
+ * separate component, its own consistent hook order) once isEditing is
+ * actually true — a component-identity switch, not a conditional hook
+ * call, so rules-of-hooks holds for both branches.
+ */
+export function InlineTextEditor(props: InlineTextEditorProps) {
+  const { isEditing, componentId, value, as, className, elementStyle } =
+    props;
+  if (!isEditing || !componentId) {
+    const Tag = as;
+    return (
+      <Tag className={className} style={elementStyle}>
+        {value}
+      </Tag>
+    );
+  }
+  return <EditableInlineText {...props} componentId={componentId} />;
+}
+
+function EditableInlineText({
   componentId,
   fieldName,
   value,
-  isEditing,
   as,
   className,
   elementStyle,
   disableLineBreaks = false,
   styleField,
   wrapperDisplay = "inline-block",
-}: InlineTextEditorProps) {
+}: InlineTextEditorProps & { componentId: string }) {
+  // Only ever mounted when isEditing was true (see InlineTextEditor
+  // above), which itself only happens inside <Puck> — safe to call these
+  // unconditionally here.
   const getPuck = useGetPuck();
   const writeText = useFieldWriter();
   const width = useViewportWidthLocal();
@@ -372,7 +400,7 @@ export function InlineTextEditor({
   const cancelingRef = useRef(false);
   const [editingSession, setEditingSession] = useState(false);
 
-  const canEdit = Boolean(isEditing) && !isPhone && Boolean(componentId);
+  const canEdit = !isPhone;
 
   // idle sync: whenever the external value changes and we're NOT mid-edit,
   // mirror it into the DOM imperatively (never via React children while
