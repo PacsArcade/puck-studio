@@ -10,6 +10,7 @@ import {
 } from "./responsive/schema";
 import { styleVariantsCss, type BlockStyleDefaults } from "./responsive/css";
 import { UnifiedStyleField } from "./responsive/field";
+import { InlineTextEditor } from "./style/InlineTextEditor";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
@@ -462,29 +463,50 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align,
           style,
           styleVariants,
-        }: HeadingProps & { id?: string }) => {
+          puck,
+        }: HeadingProps & {
+          id?: string;
+          puck?: { isEditing?: boolean };
+        }) => {
           const Tag = level;
           const rsp = sv(id, align, style, styleVariants);
           if (!rsp)
             return (
               <div style={box(align, style)}>
-                <Tag
+                <InlineTextEditor
+                  componentId={id}
+                  fieldName="text"
+                  value={text}
+                  isEditing={puck?.isEditing}
+                  as={Tag}
                   className="sec-h"
-                  style={{ display: "inline-block", ...typo(style) }}
-                >
-                  {text}
-                </Tag>
+                  elementStyle={typo(style)}
+                  disableLineBreaks
+                  styleField={{
+                    value: style,
+                    styleVariants,
+                    tokens: ACTIVE_TOKENS,
+                  }}
+                />
               </div>
             );
           return (
             <div className={rsp.boxClass}>
               <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
-              <Tag
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as={Tag}
                 className={`sec-h ${rsp.typoClass}`}
-                style={{ display: "inline-block" }}
-              >
-                {text}
-              </Tag>
+                disableLineBreaks
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             </div>
           );
         },
