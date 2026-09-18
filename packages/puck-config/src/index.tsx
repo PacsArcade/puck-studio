@@ -10,6 +10,7 @@ import {
 } from "./responsive/schema";
 import { styleVariantsCss, type BlockStyleDefaults } from "./responsive/css";
 import { UnifiedStyleField } from "./responsive/field";
+import { InlineTextEditor } from "./style/InlineTextEditor";
 
 /**
  * Puck config -- the house palette (P3/P3.5), alignment + labels (P5), and
@@ -407,28 +408,50 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align,
           style,
           styleVariants,
-        }: EyebrowProps & { id?: string }) => {
+          puck,
+        }: EyebrowProps & {
+          id?: string;
+          puck?: { isEditing?: boolean };
+        }) => {
           const rsp = sv(id, align, style, styleVariants);
           if (!rsp)
             return (
               <div style={box(align, style)}>
-                <span
+                <InlineTextEditor
+                  componentId={id}
+                  fieldName="text"
+                  value={text}
+                  isEditing={puck?.isEditing}
+                  as="span"
                   className="kicker"
-                  style={{ display: "inline-block", ...typo(style) }}
-                >
-                  {text}
-                </span>
+                  elementStyle={{ display: "inline-block", ...typo(style) }}
+                  disableLineBreaks
+                  styleField={{
+                    value: style,
+                    styleVariants,
+                    tokens: ACTIVE_TOKENS,
+                  }}
+                />
               </div>
             );
           return (
             <div className={rsp.boxClass}>
               <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
-              <span
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as="span"
                 className={`kicker ${rsp.typoClass}`}
-                style={{ display: "inline-block" }}
-              >
-                {text}
-              </span>
+                elementStyle={{ display: "inline-block" }}
+                disableLineBreaks
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             </div>
           );
         },
@@ -463,29 +486,51 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align,
           style,
           styleVariants,
-        }: HeadingProps & { id?: string }) => {
+          puck,
+        }: HeadingProps & {
+          id?: string;
+          puck?: { isEditing?: boolean };
+        }) => {
           const Tag = level;
           const rsp = sv(id, align, style, styleVariants);
           if (!rsp)
             return (
               <div style={box(align, style)}>
-                <Tag
+                <InlineTextEditor
+                  componentId={id}
+                  fieldName="text"
+                  value={text}
+                  isEditing={puck?.isEditing}
+                  as={Tag}
                   className="sec-h"
-                  style={{ display: "inline-block", ...typo(style) }}
-                >
-                  {text}
-                </Tag>
+                  elementStyle={{ display: "inline-block", ...typo(style) }}
+                  disableLineBreaks
+                  styleField={{
+                    value: style,
+                    styleVariants,
+                    tokens: ACTIVE_TOKENS,
+                  }}
+                />
               </div>
             );
           return (
             <div className={rsp.boxClass}>
               <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
-              <Tag
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as={Tag}
                 className={`sec-h ${rsp.typoClass}`}
-                style={{ display: "inline-block" }}
-              >
-                {text}
-              </Tag>
+                elementStyle={{ display: "inline-block" }}
+                disableLineBreaks
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             </div>
           );
         },
@@ -584,7 +629,11 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align,
           style,
           styleVariants,
-        }: TextProps & { id?: string }) => {
+          puck,
+        }: TextProps & {
+          id?: string;
+          puck?: { isEditing?: boolean };
+        }) => {
           const rsp = sv(
             id,
             align,
@@ -594,22 +643,44 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           );
           if (!rsp)
             return (
-              <p
-                style={{
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as="p"
+                wrapperDisplay="block"
+                elementStyle={{
                   color: "var(--ink-body)",
                   fontSize: ".98rem",
                   lineHeight: 1.85,
                   ...box(align, style),
                   ...typo(style),
                 }}
-              >
-                {text}
-              </p>
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             );
           return (
             <>
               <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
-              <p className={`${rsp.boxClass} ${rsp.typoClass}`}>{text}</p>
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as="p"
+                wrapperDisplay="block"
+                className={`${rsp.boxClass} ${rsp.typoClass}`}
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             </>
           );
         },
@@ -689,23 +760,47 @@ export function createConfig(opts: PuckConfigOptions): OcPuckConfig {
           align,
           style,
           styleVariants,
-        }: PullQuoteProps & { id?: string }) => {
+          puck,
+        }: PullQuoteProps & {
+          id?: string;
+          puck?: { isEditing?: boolean };
+        }) => {
           const rsp = sv(id, align, style, styleVariants);
           if (!rsp)
             return (
-              <p
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as="p"
+                wrapperDisplay="block"
                 className="pull-quote"
-                style={{ ...box(align, style), ...typo(style) }}
-              >
-                {text}
-              </p>
+                elementStyle={{ ...box(align, style), ...typo(style) }}
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             );
           return (
             <>
               <style dangerouslySetInnerHTML={{ __html: rsp.cssText }} />
-              <p className={`pull-quote ${rsp.boxClass} ${rsp.typoClass}`}>
-                {text}
-              </p>
+              <InlineTextEditor
+                componentId={id}
+                fieldName="text"
+                value={text}
+                isEditing={puck?.isEditing}
+                as="p"
+                wrapperDisplay="block"
+                className={`pull-quote ${rsp.boxClass} ${rsp.typoClass}`}
+                styleField={{
+                  value: style,
+                  styleVariants,
+                  tokens: ACTIVE_TOKENS,
+                }}
+              />
             </>
           );
         },
