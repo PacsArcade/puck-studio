@@ -10,6 +10,8 @@
 export {
   PreviewSizer,
   ResponsiveStyleField,
+  SPACING_SECTION_PROPS,
+  TYPOGRAPHY_SECTION_PROPS,
   UnifiedStyleField,
   useTargetBreakpoint,
   VIEWPORT_PRESETS,
